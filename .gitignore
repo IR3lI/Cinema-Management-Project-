@@ -1,0 +1,99 @@
+## .NET Build & Output
+[Bb]in/
+[Oo]bj/
+publish/
+*.exe
+*.dll
+*.pdb
+*.deps.json
+*.runtimeconfig.json
+*.staticwebassets.runtime.json
+*.staticwebassets.endpoints.json
+
+## MariaDB Embedded / Local Server & Data
+mariadb-*/
+*.frm
+*.ibd
+ib_logfile*
+ibdata*
+ibtmp*
+
+## SQLite & Temporary Databases
+app.db
+app.db-shm
+app.db-wal
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+## IDE & User Settings
+.vs/
+.vscode/
+.antigravity/
+*.user
+*.userprefs
+*.suo
+.DS_Store
+Thumbs.db
+
+## Microsoft Office Temporary Files
+~$*.docx
+~$*.xlsx
+~$*.pptx
+
+## Python Cache
+__pycache__/
+*.pyc
+
+## Archives & Logs
+*.zip
+*.tar.gz
+*.7z
+
+## Root level redundant wwwroot and nginx binaries
+/wwwroot/
+nginx/bin/
+*.log
+
+
+## Documentation, Reports & Diagram Assets (Kept locally)
+*.docx
+*.drawio
+*.xml
+*.txt
+*.md
+!README.md
+!.spec/**
+!CineManagement/.specify/**
+!CineManagement/specs/**
+!.specify/**
+!specs/**
+!CineManagement/wwwroot/lib/**
+!CineManagement/.agents/**
+/diagrams/
+/screenshots/
+/screenshots_user/
+/extracted_media/
+!docs/**
+*_Viewer.html
+diagram_drawio.html
+generate_*.py
+docx_helpers.py
+create_complete_drawio_package.py
+package_demo_zip.py
+test_drawio_algo.py
+test_published_app.py
+diagrams_sprint*.png
+diagram_*.png
+test_font.png
+
+## Root level scripts and infrastructure (Kept locally)
+Dockerfile.buoi8
+docker-compose.buoi8.yml
+*.bat
+download_posters.py
+get_posters.py
+update_db_seed.py
+/nginx/
