@@ -11,7 +11,7 @@
 
 Tài liệu này xác định toàn bộ các yêu cầu kỹ thuật đối với hệ thống **CineManagement**, bao gồm:
 1. **Yêu cầu chức năng (Functional Requirements - FR)**: Mô tả các hành vi, quy trình nghiệp vụ và chức năng cụ thể mà hệ thống phải thực hiện cho 3 nhóm tác nhân chính: Khách hàng (`Customer`), Nhân viên quầy (`Staff`) và Quản trị viên (`Admin`).
-2. **Yêu cầu phi chức năng (Non-Functional Requirements - NFR)**: Định lượng các tiêu chuẩn chất lượng về hiệu năng, độ tin cậy, an toàn bảo mật, tính toàn vẹn dữ liệu và khả năng tương thích phần cứng theo chuẩn quốc tế **ISO/IEC 25010**.
+2. **Yêu cầu phi chức năng (Non-Functional Requirements - NFR)**: Định lượng các tiêu chuẩn chất lượng về hiệu năng, độ tin cậy, an toàn bảo mật, tính toàn vẹn dữ liệu và khả năng tương thích phần cứng**.
 
 ---
 
