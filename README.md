@@ -1,4 +1,4 @@
-# 🎬 CINEMANAGEMENT - HỆ THỐNG QUẢN LÝ CHUỖI RẠP CHIẾU PHIM TẬP TRUNG
+#  CINEMANAGEMENT - HỆ THỐNG QUẢN LÝ CHUỖI RẠP CHIẾU PHIM TẬP TRUNG
 
 [![.NET Core](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![Entity Framework Core](https://img.shields.io/badge/EF%20Core-10.0-512BD4?logo=dotnet&logoColor=white)](https://learn.microsoft.com/ef/core/)
@@ -61,44 +61,4 @@ Toàn bộ tài liệu đặc tả kỹ thuật và thiết kế hệ thống th
 │ • Google SMTP Server (smtp.gmail.com:587 TLS/SSL)                                      │
 │ • Hardware Thermal Receipt Printer (Khổ 80mm ESC/POS / System Print Driver)            │
 └────────────────────────────────────────────────────────────────────────────────────────┘
-```
 
----
-
-## ⚡ HƯỚNG DẪN KHỞI CHẠY HỆ THỐNG
-
-### 1. Yêu cầu Tiên quyết
-* **.NET SDK 10.0+**
-* **MariaDB 10.11+** hoặc **MySQL 8.0+** chạy tại `localhost:3306`
-
-### 2. Cấu hình Chuỗi Kết Nối
-Kiểm tra cấu hình trong [`CineManagement/appsettings.json`](./CineManagement/appsettings.json):
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost;Port=3306;Database=cinema_db;Uid=root;Pwd=;CharSet=utf8mb4;"
-  }
-}
-```
-
-### 3. Khởi Động Ứng Dụng
-```powershell
-# Chạy máy chủ MariaDB (nếu dùng binary cục bộ)
-.\START-MySQL.bat
-
-# Khởi chạy ứng dụng Web
-cd CineManagement
-dotnet run --launch-profile http
-```
-Ứng dụng sẽ khả dụng tại: **`http://localhost:5006`**
-
-### 4. Tài Khoản Quản Trị & Dữ Liệu Demo
-* **Tài khoản Quản trị**: `admin@cinema.com` / Mật khẩu: `Admin@123`
-* **Dữ liệu Demo đã nạp sẵn**:
-  * 3 Cụm rạp chi nhánh: CineStar Quốc Thanh, CineStar Hai Bà Trưng, CineStar Bình Dương
-  * 210 Suất chiếu phim từ ngày 28/10/2026 đến 02/11/2026
-  * 31,806 Ghế trạng thái đã được khởi tạo
-  * 3 Mã đơn hàng test quầy POS:
-    * `BK-DEMO-ONLINE-01`: Đơn vé thường + bắp nước chưa in
-    * `BK-DEMO-UPSELL-02`: Đơn vé ghế đôi Sweetbox chưa in (test gợi ý mua thêm F&B)
-    * `BK-DEMO-PRINTED-03`: Đơn vé ĐÃ IN LÚC 14:20 (test cơ chế chặn in lậu màu đỏ)
