@@ -293,7 +293,7 @@ sequenceDiagram
 
     Admin->>StudioUI: Truy cập Studio thiết kế phòng chiếu RoomId = 1
     StudioUI->>RoomCtrl: GET /ScreeningRoom/LayoutBuilder?id=1
-    RoomCtrl->>DB: SELECT * FROM screeningrooms WHERE RoomId = 1; SELECT * FROM seats; SELECT * FROM seattypes;
+    RoomCtrl->>DB: SELECT FROM screeningrooms, seats, seattypes WHERE RoomId = 1
     DB-->>RoomCtrl: Dữ liệu cấu trúc lưới và danh mục hạng ghế
     RoomCtrl-->>StudioUI: Render giao diện ma trận 2D CSS Grid (TotalRows x TotalCols)
 
@@ -334,7 +334,7 @@ sequenceDiagram
     StudioUI->>RoomCtrl: POST /ScreeningRoom/SaveSeatLayout { roomId, totalRows, totalCols, seats[] }
     activate RoomCtrl
     RoomCtrl->>DB: BEGIN TRANSACTION (Serializable)
-    RoomCtrl->>DB: DELETE FROM seats WHERE RoomId = @roomId AND SeatId NOT IN (đã có vé)
+    RoomCtrl->>DB: DELETE FROM seats WHERE RoomId = @roomId AND chưa có vé
     RoomCtrl->>DB: INSERT INTO seats (GridRow, GridCol, RowLabel, SeatNumber, ColSpan, SeatTypeId)
     RoomCtrl->>DB: Đồng bộ an toàn bảng showtimeseats cho các suất chiếu tương lai
     RoomCtrl->>DB: COMMIT TRANSACTION
