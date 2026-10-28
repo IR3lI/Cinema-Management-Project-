@@ -12,7 +12,7 @@
 Kiến trúc hệ thống **CineManagement** được thiết kế nhằm đáp ứng các yêu cầu khắt khe của một chuỗi rạp chiếu phim hiện đại:
 1. **Khả năng chịu tải đồng thời cao (High-Concurrency)**: Hàng trăm người dùng cùng truy cập chọn ghế một suất chiếu bom tấn mà không xảy ra hiện tượng tranh chấp (Race Condition) hay bán trùng ghế (Double Booking).
 2. **Đồng bộ thời gian thực siêu tốc (< 50ms)**: Bất kỳ thay đổi trạng thái ghế nào lập tức được phát sóng đến tất cả các client đang xem cùng suất chiếu qua WebSockets nhị phân.
-3. **Độ tin cậy giao dịch tuyệt đối (Zero Message Loss)**: Đảm bảo 100% email vé điện tử được gửi thành công đến khách hàng qua Transactional Outbox Pattern, độc lập với sự cố mạng máy chủ thư điện tử.
+3. **Độ tin cậy giao dịch tuyệt đối (Zero Message Loss)**: Đảm bảo 100% email vé điện tử E-Ticket kèm mã QR cá nhân hóa được chuyển phát tin cậy ngay cả khi máy chủ thư điện tử gặp sự cố mạng tạm thời.
 4. **Vận hành quầy vé POS "Một Cửa"**: Tích hợp quét mã QR, gợi ý bán kèm bắp nước (Upsell F&B), kiểm tra cờ chống in vé lậu (`IsPrinted Guard`) và xuất lệnh in vé nhiệt K80 80mm.
 
 ---
@@ -143,9 +143,9 @@ sequenceDiagram
     BService->>DB: COMMIT TRANSACTION
     deactivate BService
 
-    BService->>Hub: Broadcast to Group "showtime_1": SeatStatusChanged(seatId, status: Held, heldByUser: UserA)
-    Hub-->>UserA: Đổi màu ghế Xanh Dương (Đang chọn) + Kích hoạt đếm ngược 05:00
-    Hub-->>UserB: Đổi màu ghế Vàng (Đang bị giữ) + Vô hiệu hóa nút bấm ghế E5, E6
+    BService->>Hub: Broadcast to Group showtime_1: SeatStatusChanged(seatId, status: Held, heldByUser: UserA)
+    Hub-->>UserA: Đổi màu ghế Xanh Dương (Đang chọn) và Kích hoạt đếm ngược 05:00
+    Hub-->>UserB: Đổi màu ghế Vàng (Đang bị giữ) và Vô hiệu hóa nút bấm ghế E5, E6
 
     Note over UserB, BService: Khách B cố tình click vào ghế E5 cùng thời điểm
     UserB->>BService: POST /Booking/HoldSeats { showtimeId: 1, seatIds: [113] }
@@ -154,7 +154,7 @@ sequenceDiagram
     BService->>DB: SELECT * FROM showtimeseats WHERE SeatId = 113
     DB-->>BService: Status = Held, HeldByUserId = 'UserA', HoldExpiresAt > UtcNow
     BService->>DB: ROLLBACK TRANSACTION
-    BService-->>UserB: HTTP 409 Conflict: "Ghế E5 đang được người khác giữ chỗ!"
+    BService-->>UserB: HTTP 409 Conflict: Ghế E5 đang được người khác giữ chỗ!
     deactivate BService
 
     Note over Worker, DB: Xử lý Tự Động Thu Hồi Ghế Quá Hạn sau 5 phút (Nếu UserA không thanh toán)
@@ -162,8 +162,8 @@ sequenceDiagram
         Worker->>DB: SELECT * FROM showtimeseats WHERE Status = Held AND HoldExpiresAt <= UtcNow
         DB-->>Worker: Danh sách ghế hết hạn
         Worker->>DB: UPDATE showtimeseats SET Status = Available, HeldByUserId = NULL, Version = Version + 1
-        Worker->>Hub: Broadcast to Group "showtime_1": SeatStatusChanged(seatId, status: Available)
-        Hub-->>UserA: Thông báo: "Hết thời gian giữ vé!"
+        Worker->>Hub: Broadcast to Group showtime_1: SeatStatusChanged(seatId, status: Available)
+        Hub-->>UserA: Thông báo: Hết thời gian giữ vé!
         Hub-->>UserB: Ghế E5, E6 chuyển lại màu xám sẵn sàng đặt vé
     end
 ```
@@ -197,12 +197,12 @@ sequenceDiagram
     
     Note over PService, DB: TRANSACTIONAL OUTBOX: Lưu sự kiện gửi Email vé vào DB
     PService->>DB: INSERT INTO outboxmessages (Id, Type: 'TicketEmail', Payload: JSON, IsProcessed: 0, RetryCount: 0)
-    PService->>DB: COMMIT TRANSACTION (Toàn bộ dữ liệu được chốt 100%)
+    PService->>DB: COMMIT TRANSACTION
     
     PService->>Hub: Broadcast to Group: SeatStatusChanged (status: Reserved)
     PService-->>Controller: Giao dịch thành công
     deactivate PService
-    Controller-->>Customer: HTTP 200 OK: Trả về Màn hình Đặt Vé Thành Công (E-Ticket) trong tích tắc (< 150ms)
+    Controller-->>Customer: HTTP 200 OK: Trả về Màn hình Đặt Vé Thành Công trong tích tắc
     deactivate Controller
 
     Note over OutboxWorker, SMTP: Tiến trình nền Outbox Worker quét hàng đợi mỗi 5 giây
@@ -215,8 +215,8 @@ sequenceDiagram
             SMTP-->>OutboxWorker: 250 Message Accepted
             OutboxWorker->>DB: UPDATE outboxmessages SET IsProcessed = 1, ProcessedAt = UtcNow
             Customer-->>Customer: Nhận Email vé xem phim vào hộp thư đến
-        else Sự Cố Mạng / Timeout SMTP Server
-            SMTP-->>OutboxWorker: Connection Timeout / Error 503
+        else Sự Cố Mạng hoặc Timeout SMTP Server
+            SMTP-->>OutboxWorker: Connection Timeout hoặc Error 503
             OutboxWorker->>DB: UPDATE outboxmessages SET RetryCount = RetryCount + 1, ErrorMessage = 'Timeout'
             Note over OutboxWorker: Tự động thử lại ở chu kỳ 5 giây tiếp theo (Tối đa 3 lần)
         end
@@ -246,22 +246,22 @@ sequenceDiagram
     DB-->>CounterCtrl: Thông tin đơn hàng, danh sách vé và F&B
 
     alt TRƯỜNG HỢP VÉ ĐÃ ĐƯỢC IN TRƯỚC ĐÓ (IsPrinted == true)
-        CounterCtrl-->>POS_UI: { success: false, alreadyPrinted: true, printedAt, printedByStaff }
-        POS_UI-->>Staff: ⚠️ BẬT MODAL CẢNH BÁO ĐỎ RỰC:<br/>"VÉ NÀY ĐÃ ĐƯỢC IN VÀO LÚC {PrintedAt} BỞI {StaffName}! TỪ CHỐI IN LẠI!"
-        Staff-->>Customer: Chặn lại, từ chối in vé (Phát hiện gian lận dùng lại ảnh chụp màn hình QR)
+        CounterCtrl-->>POS_UI: Phản hồi vé đã in: alreadyPrinted = true
+        POS_UI-->>Staff: Bật cảnh báo đỏ: Vé đã được in trước đó, từ chối in lại!
+        Staff-->>Customer: Chặn lại, từ chối in vé (Phát hiện gian lận dùng lại QR)
     else TRƯỜNG HỢP VÉ HỢP LỆ (Chưa in vé cứng)
-        CounterCtrl-->>POS_UI: { success: true, booking, tickets, concessions, availableFoods }
+        CounterCtrl-->>POS_UI: Phản hồi hợp lệ: Thông tin vé và danh mục F&B
         deactivate CounterCtrl
-        POS_UI-->>Staff: Hiển thị bảng chi tiết ghế + Bảng gợi ý "🍿 Mời khách mua thêm Bắp Nước (Upsell)"
+        POS_UI-->>Staff: Hiển thị chi tiết ghế và bảng gợi ý Upsell Bắp Nước
         
-        Staff->>Customer: "Anh/Chị có muốn dùng thêm Combo Bắp Rang Phô Mai & Nước ngọt lớn không ạ?"
-        Customer->>Staff: "Cho mình 1 Bắp Phô Mai và 2 Coca Lớn"
-        Staff->>POS_UI: Bấm nút [+] chọn thêm 1 Bắp Phô Mai & 2 Coca (Tự động cộng +120.000đ)
-        Staff->>POS_UI: Chọn phương thức thu tiền: Tiền mặt tại quầy (Cash)
+        Staff->>Customer: Tư vấn dùng thêm Combo Bắp Phô Mai và Nước ngọt
+        Customer->>Staff: Đồng ý mua thêm 1 Bắp Phô Mai và 2 Coca Lớn
+        Staff->>POS_UI: Bấm chọn thêm 1 Bắp Phô Mai và 2 Coca (+120.000đ)
+        Staff->>POS_UI: Chọn phương thức thu tiền mặt (Cash)
         Staff->>Customer: Thu tiền mặt 120.000đ
-        Staff->>POS_UI: Bấm nút "🖨️ XÁC NHẬN & IN VÉ NHIỆT (80MM)"
+        Staff->>POS_UI: Bấm nút Xác Nhận và In Vé Nhiệt 80mm
 
-        POS_UI->>CounterCtrl: POST /Counter/ConfirmPrintAndUpsell { bookingId, upsellItems, paymentMethod: 'Cash' }
+        POS_UI->>CounterCtrl: POST /Counter/ConfirmPrintAndUpsell { bookingId, upsellItems, paymentMethod }
         activate CounterCtrl
         CounterCtrl->>DB: BEGIN TRANSACTION (Serializable)
         Note over CounterCtrl, DB: Kiểm tra lại cờ IsPrinted trong Transaction chống Race Condition
@@ -269,12 +269,12 @@ sequenceDiagram
         CounterCtrl->>DB: INSERT INTO payments (Amount: 120k, Method: Cash, Status: Paid)
         CounterCtrl->>DB: UPDATE tickets SET IsPrinted = true, PrintedAt = UtcNow, PrintedByUserId = @staffId, ThermalReceiptCode = 'POS80-...'
         CounterCtrl->>DB: COMMIT TRANSACTION
-        CounterCtrl-->>POS_UI: { success: true, printUrl: '/Counter/PrintThermalTicket?bookingId=...' }
+        CounterCtrl-->>POS_UI: Phản hồi thành công: printUrl = /Counter/PrintThermalTicket
         deactivate CounterCtrl
 
         POS_UI->>ThermalPrinter: Kích hoạt in tự động window.print()
-        ThermalPrinter-->>Staff: Nhả các phiếu vé nhiệt 80mm rời từng ghế (font số ghế 32px) + 01 Phiếu Nhận Bắp Nước (F&B Voucher)
-        Staff-->>Customer: Giao vé cứng vào phòng chiếu & Phiếu nhận bắp nước
+        ThermalPrinter-->>Staff: Nhả phiếu vé nhiệt 80mm rời từng ghế và phiếu F&B Voucher
+        Staff-->>Customer: Giao vé cứng vào phòng chiếu và phiếu nhận bắp nước
     end
 ```
 
@@ -297,37 +297,37 @@ sequenceDiagram
     DB-->>RoomCtrl: Dữ liệu cấu trúc lưới và danh mục hạng ghế
     RoomCtrl-->>StudioUI: Render giao diện ma trận 2D CSS Grid (TotalRows x TotalCols)
 
-    Note over Admin, StudioUI: Thao tác 1: Bật / Tắt Hành lang Lối đi (Aisle Configurator)
-    Admin->>StudioUI: Nhấp vào nút "🚶 Đặt Hành lang Dọc" ở tiêu đề Cột 4 và Cột 13
-    StudioUI->>StudioUI: Đánh dấu Cột 4 & 13 là lối đi trống, tự động xóa các ghế ở cột này
+    Note over Admin, StudioUI: Thao tác 1: Bật hoặc Tắt Hành lang Lối đi (Aisle Configurator)
+    Admin->>StudioUI: Nhấp nút Đặt Hành lang Dọc tại Cột 4 và Cột 13
+    StudioUI->>StudioUI: Đánh dấu Cột 4 và 13 là lối đi trống, tự động xóa ghế ở cột này
 
     Note over Admin, StudioUI: Thao tác 2: Dùng cọ vẽ Hạng Ghế (Seat Type Painter)
-    Admin->>StudioUI: Chọn cọ "💕 Ghế Đôi Sweetbox (ColSpan = 2)"
-    Admin->>StudioUI: Nhấp vào ô (Hàng 10, Cột 3) - nằm sát trước hành lang Cột 4
+    Admin->>StudioUI: Chọn cọ Ghế Đôi Sweetbox (ColSpan = 2)
+    Admin->>StudioUI: Nhấp vào ô Hàng 10, Cột 3 (nằm sát trước hành lang Cột 4)
     StudioUI->>Engine: ValidateCoupleSeatPlacement(row: 10, col: 3)
     activate Engine
-    Note over Engine: Kiểm tra: Cột tiếp theo là Cột 4 (Cột Hành lang) -> Không hợp lệ!
-    Engine-->>StudioUI: { valid: false, error: "Ghế đôi chiếm 2 ô không được lấn vào cột hành lang!" }
+    Note over Engine: Kiểm tra: Cột tiếp theo là Cột 4 (Hành lang) => Không hợp lệ!
+    Engine-->>StudioUI: Phản hồi lỗi: Ghế đôi không được lấn vào cột hành lang
     deactivate Engine
-    StudioUI-->>Admin: Hiển thị tooltip cảnh báo & Chặn không cho gán ghế đôi tại vị trí này
+    StudioUI-->>Admin: Hiển thị cảnh báo và chặn không cho gán ghế đôi
 
-    Admin->>StudioUI: Nhấp vào ô hợp lệ (Hàng 10, Cột 5)
+    Admin->>StudioUI: Nhấp vào ô hợp lệ Hàng 10, Cột 5
     StudioUI->>Engine: ValidateCoupleSeatPlacement(row: 10, col: 5)
     activate Engine
-    Note over Engine: Cột 5 và Cột 6 đều thuộc Block trung tâm -> Hợp lệ!
-    Engine-->>StudioUI: { valid: true }
+    Note over Engine: Cột 5 và Cột 6 đều thuộc Block trung tâm => Hợp lệ
+    Engine-->>StudioUI: Phản hồi hợp lệ: Cho phép đặt ghế đôi
     deactivate Engine
-    StudioUI->>StudioUI: Gán ghế đôi J2 tại Cột 5 với ColSpan = 2 (chiếm Cột 5 và 6)
+    StudioUI->>StudioUI: Gán ghế đôi J2 tại Cột 5 chiếm Cột 5 và 6 (ColSpan = 2)
 
     Note over Admin, StudioUI: Thao tác 3: Click lại để xóa ghế
     Admin->>StudioUI: Nhấp vào một ghế đã có sẵn một lần nữa
     StudioUI->>StudioUI: Ghế chuyển thành ô trống (Xóa ghế)
 
     Note over Admin, StudioUI: Thao tác 4: Lưu Sơ đồ Phòng chiếu xuống Database
-    Admin->>StudioUI: Bấm "💾 LƯU CẤU TRÚC PHÒNG CHIẾU"
+    Admin->>StudioUI: Bấm nút Lưu Cấu Trúc Phòng Chiếu
     StudioUI->>Engine: RecalculateLabelsAndSeatNumbers(matrix)
     activate Engine
-    Note over Engine: Bỏ qua hàng hành lang để đánh nhãn RowLabel (A, B, C...)<br/>Đánh số ghế SeatNumber từ trái qua phải bỏ qua lối đi
+    Note over Engine: Tự động đánh nhãn hàng A B C và số ghế 1 2 3 bỏ qua lối đi
     Engine-->>StudioUI: Danh sách ghế SeatDto[] đã chuẩn hóa
     deactivate Engine
 
@@ -338,7 +338,7 @@ sequenceDiagram
     RoomCtrl->>DB: INSERT INTO seats (GridRow, GridCol, RowLabel, SeatNumber, ColSpan, SeatTypeId)
     RoomCtrl->>DB: Đồng bộ an toàn bảng showtimeseats cho các suất chiếu tương lai
     RoomCtrl->>DB: COMMIT TRANSACTION
-    RoomCtrl-->>StudioUI: { success: true, message: "Đã lưu sơ đồ phòng chiếu thành công!" }
+    RoomCtrl-->>StudioUI: Phản hồi thành công: Đã lưu sơ đồ phòng chiếu
     deactivate RoomCtrl
-    StudioUI-->>Admin: Hiển thị thông báo thành công & Cập nhật số ghế thực tế
+    StudioUI-->>Admin: Cập nhật giao diện thành công và hiển thị tổng số ghế thực tế
 ```
