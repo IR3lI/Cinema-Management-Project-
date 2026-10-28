@@ -289,18 +289,7 @@ erDiagram
 
 ---
 
-## 4. CHIẾN LƯỢC COMPOSITE INDEXING TỐI ƯU HIỆU NĂNG
 
-Để đảm bảo hiệu năng tra cứu $< 20\text{ ms}$ trong các khung giờ cao điểm với hơn $31,800$ bản ghi `showtimeseats`, hệ thống thiết lập các chỉ mục phức hợp chuyên sâu:
-
-```sql
--- 1. Tối ưu tra cứu trạng thái ghế theo suất chiếu (SignalR & Seat Map)
-CREATE INDEX IX_ShowtimeSeats_Showtime_Status ON showtimeseats (ShowtimeId, Status);
-
--- 2. Tối ưu tác vụ quét ghế quá hạn của Background Worker
-CREATE INDEX IX_ShowtimeSeats_Held_Timeout ON showtimeseats (Status, HoldExpiresAt);
-
--- 3. Tối ưu tác vụ quét hàng đợi Transactional Outbox (Outbox Worker)
 CREATE INDEX IX_OutboxMessages_Processed_Retry ON outboxmessages (IsProcessed, RetryCount);
 
 -- 4. Tối ưu quét mã QR và kiểm tra cờ chống in lậu vé tại quầy POS
