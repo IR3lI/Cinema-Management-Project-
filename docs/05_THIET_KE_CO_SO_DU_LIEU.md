@@ -23,169 +23,198 @@ Cơ sở dữ liệu của **CineManagement** được thiết kế đáp ứng 
 
 ---
 
-## 2. SƠ ĐỒ QUAN HỆ THỰC THỂ TỔNG THỂ (MERMAID ERD 12 BẢNG)
+## 2. SƠ ĐỒ QUAN HỆ THỰC THỂ TỔNG THỂ (MERMAID ERD 15 BẢNG CHUẨN 3NF)
 
 ```mermaid
 erDiagram
+    roles ||--o{ users : "phân quyền (1-N)"
     cinemas ||--o{ screeningrooms : "sở hữu (1-N)"
+    screeningrooms ||--o{ showtimes : "tổ chức tại (1-N)"
     screeningrooms ||--o{ seats : "chứa (1-N)"
     seattypes ||--o{ seats : "phân loại (1-N)"
     movies ||--o{ showtimes : "lập lịch (1-N)"
-    screeningrooms ||--o{ showtimes : "tổ chức tại (1-N)"
     showtimes ||--o{ showtimeseats : "sinh trạng thái ghế (1-N)"
     seats ||--o{ showtimeseats : "ánh xạ vật lý (1-N)"
-    aspnetroles ||--o{ aspnetusers : "phân quyền (N-N)"
-    aspnetusers ||--o{ bookings : "đặt hàng (1-N)"
+    showtimeseats ||--o| tickets : "khóa vé (1-1)"
+    users ||--o{ bookings : "đặt hàng (1-N)"
+    users ||--o{ bookings : "in bởi nhân viên (0-1)"
     showtimes ||--o{ bookings : "thuộc suất (1-N)"
     bookings ||--o{ tickets : "xuất vé (1-N)"
-    showtimeseats ||--o| tickets : "khóa vé (1-1)"
-    bookings ||--o{ bookingconcessions : "chứa F&B (1-N)"
     fooditems ||--o{ bookingconcessions : "định nghĩa món (1-N)"
+    bookings ||--o{ bookingconcessions : "chứa F&B (1-N)"
     bookings ||--o{ payments : "thanh toán (1-N)"
-    bookings ||--o{ outboxmessages : "phát sự kiện (1-N)"
 
-    aspnetusers {
-        string Id PK "Khóa chính GUID Identity"
-        string UserName "Tên đăng nhập"
-        string Email "Địa chỉ email"
-        string PhoneNumber "Số điện thoại"
-        string FullName "Họ và tên"
-        datetime CreatedAt "Thời điểm tạo"
+    outboxmessages {
+        guid Id PK
+        string Type
+        string Payload
+        datetime CreatedAt
+        datetime ProcessedAt
+        int RetryCount
+        int MaxRetries
+        string LastError
     }
 
-    aspnetroles {
-        string Id PK "Khóa chính vai trò"
-        string Name "Admin / Staff / Customer"
+    roles {
+        string Id PK
+        string Name
+        string NormalizedName
+    }
+
+    users {
+        string Id PK
+        string UserName
+        string Email
+        string PhoneNumber
+        string FullName
+        string RoleName
+        bool EmailConfirmed
+        bool IsActive
+        datetime CreatedAt
     }
 
     cinemas {
-        int CinemaId PK "Khóa chính cụm rạp"
-        string Code "Mã rạp (CS-QT, CS-HBT)"
-        string Name "Tên cụm rạp"
-        string Address "Địa chỉ chi tiết"
-        string City "Tỉnh / Thành phố"
-        string Hotline "Hotline liên hệ"
-        bool IsActive "Trạng thái hoạt động"
+        int CinemaId PK
+        string Code UK
+        string Name
+        string Address
+        string City
+        string Hotline
+        string Email
+        bool IsActive
+        datetime CreatedAt
     }
 
     screeningrooms {
-        int RoomId PK "Khóa chính phòng chiếu"
-        int CinemaId FK "Thuộc cụm rạp nào"
-        string RoomName "Tên phòng (Phòng 1, IMAX...)"
-        int TotalRows "Số hàng ma trận ghế"
-        int TotalCols "Số cột ma trận ghế"
-        int Capacity "Sức chứa ghế thực tế"
+        int RoomId PK
+        int CinemaId FK
+        string RoomName
+        int RoomType
+        int Capacity
+        int TotalRows
+        int TotalCols
+        bool IsActive
     }
 
     seattypes {
-        int SeatTypeId PK "Khóa chính hạng ghế"
-        string Code "STANDARD / VIP / COUPLE"
-        string Name "Ghế Thường / Ghế VIP / Ghế Đôi"
-        decimal Surcharge "Phụ thu (0đ, 20.000đ, 50.000đ)"
-        int ColSpan "Độ rộng lưới (1 ô hoặc 2 ô)"
-        string ColorCode "Mã màu HEX hiển thị"
+        int SeatTypeId PK
+        string Code UK
+        string Name
+        decimal Surcharge
+        int ColSpan
+        string ColorCode
+        bool IsActive
     }
 
     seats {
-        int SeatId PK "Khóa chính ghế vật lý"
-        int RoomId FK "Thuộc phòng chiếu nào"
-        int SeatTypeId FK "Thuộc hạng ghế nào"
-        int GridRow "Tọa độ hàng ma trận (1..N)"
-        int GridCol "Tọa độ cột ma trận (1..M)"
-        string RowLabel "Nhãn hàng (A, B, C...)"
-        int SeatNumber "Số thứ tự trong hàng (1, 2...)"
-        bool IsActive "Khả dụng hay Khóa bảo trì"
+        int SeatId PK
+        int RoomId FK
+        int SeatTypeId FK
+        string RowLabel
+        int SeatNumber
+        int GridRow
+        int GridCol
+        bool IsActive
     }
 
     movies {
-        int MovieId PK "Khóa chính phim"
-        string Title "Tên tác phẩm điện ảnh"
-        string Genre "Thể loại phim"
-        int DurationMinutes "Thời lượng (phút)"
-        date ReleaseDate "Ngày khởi chiếu"
-        string AgeRating "Phân loại độ tuổi (P, C13, C18)"
-        string PosterUrl "Đường dẫn ảnh poster"
+        int MovieId PK
+        string Title
+        string Director
+        string Cast
+        int DurationMinutes
+        string AgeRating
+        string Country
+        string Format
+        string SubtitleType
+        date ReleaseDate
+        date EndDate
+        bool IsActive
     }
 
     showtimes {
-        int ShowtimeId PK "Khóa chính suất chiếu"
-        int MovieId FK "Chiếu bộ phim nào"
-        int RoomId FK "Chiếu tại phòng nào"
-        datetime StartTime "Thời điểm bắt đầu"
-        datetime EndTime "Thời điểm kết thúc"
-        decimal TicketPrice "Giá vé cơ sở (VNĐ)"
-        int Status "Available / Cancelled / Finished"
+        int ShowtimeId PK
+        int MovieId FK
+        int RoomId FK
+        datetime StartTime
+        datetime EndTime
+        decimal TicketPrice
+        int Status
     }
 
     showtimeseats {
-        int ShowtimeSeatId PK "Khóa chính trạng thái ghế"
-        int ShowtimeId FK "Thuộc suất chiếu nào"
-        int SeatId FK "Ghế vật lý tương ứng"
-        int SeatTypeId FK "Hạng ghế tương ứng"
-        decimal Price "Đơn giá vé thực tế"
-        int Status "0: Available, 1: Held, 2: Reserved"
-        string HeldByUserId "Mã người dùng đang giữ"
-        datetime HoldExpiresAt "Hạn giữ ghế 5 phút"
-        int Version "Khóa phiên chống xung đột lạc quan"
-    }
-
-    bookings {
-        int BookingId PK "Khóa chính đơn hàng"
-        string BookingCode "Mã đơn duy nhất (BK-...)"
-        string UserId FK "Khách hàng mua vé"
-        int ShowtimeId FK "Suất chiếu tương ứng"
-        decimal TotalAmount "Tổng tiền thanh toán"
-        int Status "0: Pending, 1: Confirmed, 2: Cancelled"
-        datetime CreatedAt "Thời điểm tạo đơn"
-    }
-
-    tickets {
-        int TicketId PK "Khóa chính vé điện tử"
-        int BookingId FK "Thuộc đơn hàng nào"
-        int SeatId FK "Vị trí ghế tương ứng"
-        string TicketCode "Mã vé duy nhất (TK-...)"
-        string QrPayload "Chuỗi mã hóa QR vé"
-        bool IsPrinted "Cờ kiểm định đã in vé nhiệt K80"
-        datetime PrintedAt "Thời điểm in vé cứng tại quầy"
-        string PrintedByUserId "Nhân viên thực hiện in vé"
-        string ThermalReceiptCode "Mã số phiếu in nhiệt POS80-..."
-    }
-
-    bookingconcessions {
-        int ConcessionId PK "Khóa chính dịch vụ F&B"
-        int BookingId FK "Thuộc đơn hàng nào"
-        int FoodItemId FK "Mặt hàng bắp nước"
-        int Quantity "Số lượng mua"
-        decimal UnitPrice "Đơn giá tại thời điểm mua"
+        int ShowtimeSeatId PK
+        int ShowtimeId FK
+        int SeatId FK
+        int Status
+        string HeldByUserId FK
+        datetime HoldExpiresAt
+        int Version
     }
 
     fooditems {
-        int FoodItemId PK "Khóa chính món ăn"
-        string Name "Tên món / Combo bắp nước"
-        decimal Price "Đơn giá niêm yết"
-        string ImageUrl "Đường dẫn ảnh món"
-        bool IsAvailable "Còn hàng hay hết hàng"
+        int FoodItemId PK
+        string Name
+        int Category
+        decimal Price
+        string Description
+        bool IsAvailable
+    }
+
+    bookings {
+        int BookingId PK
+        string BookingCode UK
+        string UserId FK
+        int ShowtimeId FK
+        decimal TotalAmount
+        decimal TicketAmount
+        decimal FnBAmount
+        decimal DiscountAmount
+        decimal FinalAmount
+        int Status
+        string PaymentReference
+        string ContactEmail
+        string ContactPhone
+        datetime CreatedAt
+        datetime UpdatedAt
+    }
+
+    bookingconcessions {
+        int BookingConcessionId PK
+        int BookingId FK
+        int FoodItemId FK
+        int Quantity
+        decimal UnitPrice
+        string ItemName
     }
 
     payments {
-        int PaymentId PK "Khóa chính giao dịch"
-        int BookingId FK "Thuộc đơn hàng nào"
-        string TransactionCode "Mã giao dịch ngân hàng / POS"
-        decimal Amount "Số tiền giao dịch thực tế"
-        int Method "Cash / VietQR / Card"
-        int Status "Unpaid / Paid / Failed"
-        datetime PaidAt "Thời điểm giao dịch thành công"
+        int PaymentId PK
+        int BookingId FK
+        decimal Amount
+        int Method
+        int Provider
+        string TransactionCode UK
+        int Status
+        datetime PaidAt
+        datetime CreatedAt
     }
 
-    outboxmessages {
-        guid Id PK "Khóa chính tin nhắn Outbox"
-        string Type "Loại sự kiện (TicketEmail)"
-        string Payload "Nội dung JSON của sự kiện"
-        bool IsProcessed "Cờ đã gửi mail thành công"
-        datetime CreatedAt "Thời điểm tạo tin nhắn"
-        datetime ProcessedAt "Thời điểm gửi thành công"
-        int RetryCount "Số lần đã thử lại khi lỗi"
-        string ErrorMessage "Chi tiết lỗi nếu thất bại"
+    tickets {
+        int TicketId PK
+        int BookingId FK
+        int ShowtimeId FK
+        int SeatId FK
+        int ShowtimeSeatId FK
+        string TicketCode UK
+        string SeatCode
+        decimal UnitPrice
+        int Status
+        string QrPayload
+        bool IsPrinted
+        datetime PrintedAt
+        string PrintedByUserId FK
+        string ThermalReceiptCode
     }
 ```
 
@@ -289,7 +318,18 @@ erDiagram
 
 ---
 
+## 4. CHIẾN LƯỢC COMPOSITE INDEXING TỐI ƯU HIỆU NĂNG
 
+Để đảm bảo hiệu năng tra cứu $< 20\text{ ms}$ trong các khung giờ cao điểm với hơn $31,800$ bản ghi `showtimeseats`, hệ thống thiết lập các chỉ mục phức hợp chuyên sâu:
+
+```sql
+-- 1. Tối ưu tra cứu trạng thái ghế theo suất chiếu (SignalR & Seat Map)
+CREATE INDEX IX_ShowtimeSeats_Showtime_Status ON showtimeseats (ShowtimeId, Status);
+
+-- 2. Tối ưu tác vụ quét ghế quá hạn của Background Worker
+CREATE INDEX IX_ShowtimeSeats_Held_Timeout ON showtimeseats (Status, HoldExpiresAt);
+
+-- 3. Tối ưu tác vụ quét hàng đợi Transactional Outbox (Outbox Worker)
 CREATE INDEX IX_OutboxMessages_Processed_Retry ON outboxmessages (IsProcessed, RetryCount);
 
 -- 4. Tối ưu quét mã QR và kiểm tra cờ chống in lậu vé tại quầy POS
