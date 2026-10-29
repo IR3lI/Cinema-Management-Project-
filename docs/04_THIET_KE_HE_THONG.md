@@ -115,230 +115,126 @@ graph TB
 
 ## 4. BIỂU ĐỒ TRÌNH TỰ CÁC LUỒNG NGHIỆP VỤ TRỌNG TÂM (SEQUENCE DIAGRAMS)
 
-### 4.1. Luồng 1: Đặt vé & Giữ ghế Real-Time với SignalR & Dual-Concurrency
+### 4.1. Luồng 1: Đặt vé & Giữ ghế Real-Time (SignalR & Concurrency)
+
+Quy trình giữ ghế tạm thời trong 5 phút, đồng bộ trạng thái ghế thời gian thực giữa các người dùng và ngăn chặn xung đột trùng ghế:
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor UserA as Khách Hàng A
-    actor UserB as Khách Hàng B
-    participant Hub as SignalR SeatBookingHub
-    participant BService as BookingService
-    participant DB as MariaDB (cinema_db)
-    participant Worker as SeatHoldTimeoutWorker
+    actor Customer as Khach Hang
+    participant App as Ung Dung Web
+    participant Server as Booking Service
+    participant DB as Co So Du Lieu
+    participant Hub as SignalR Hub
+    actor OtherUser as Khach Hang Khac
 
-    UserA->>Hub: Kết nối WebSocket: JoinShowtimeGroup(showtimeId)
-    UserB->>Hub: Kết nối WebSocket: JoinShowtimeGroup(showtimeId)
-
-    Note over UserA, DB: Khách hàng A bấm chọn giữ ghế E5, E6
-    UserA->>BService: POST /Booking/HoldSeats { showtimeId: 1, seatIds: [113, 114] }
-    activate BService
-    BService->>DB: BEGIN TRANSACTION (IsolationLevel.Serializable)
-    BService->>DB: SELECT * FROM showtimeseats WHERE ShowtimeId = 1 AND SeatId IN (113, 114)
-    DB-->>BService: Status = Available (0), Version = 1
-    
-    Note over BService, DB: Cập nhật giữ ghế & Tăng Version chống xung đột lạc quan
-    BService->>DB: UPDATE showtimeseats SET Status = Held (1), HeldByUserId = 'UserA', HoldExpiresAt = UtcNow + 5m, Version = 2, UpdatedAt = NOW() WHERE Version = 1
-    DB-->>BService: 2 rows updated
-    BService->>DB: COMMIT TRANSACTION
-    deactivate BService
-
-    BService->>Hub: Broadcast to Group showtime_1: SeatStatusChanged(seatId, status: Held, heldByUser: UserA)
-    Hub-->>UserA: Đổi màu ghế Xanh Dương (Đang chọn) và Kích hoạt đếm ngược 05:00
-    Hub-->>UserB: Đổi màu ghế Vàng (Đang bị giữ) và Vô hiệu hóa nút bấm ghế E5, E6
-
-    Note over UserB, BService: Khách B cố tình click vào ghế E5 cùng thời điểm
-    UserB->>BService: POST /Booking/HoldSeats { showtimeId: 1, seatIds: [113] }
-    activate BService
-    BService->>DB: BEGIN TRANSACTION (Serializable)
-    BService->>DB: SELECT * FROM showtimeseats WHERE SeatId = 113
-    DB-->>BService: Status = Held, HeldByUserId = 'UserA', HoldExpiresAt > UtcNow
-    BService->>DB: ROLLBACK TRANSACTION
-    BService-->>UserB: HTTP 409 Conflict: Ghế E5 đang được người khác giữ chỗ!
-    deactivate BService
-
-    Note over Worker, DB: Xử lý Tự Động Thu Hồi Ghế Quá Hạn sau 5 phút (Nếu UserA không thanh toán)
-    loop Định kỳ mỗi 30 giây
-        Worker->>DB: SELECT * FROM showtimeseats WHERE Status = Held AND HoldExpiresAt <= UtcNow
-        DB-->>Worker: Danh sách ghế hết hạn
-        Worker->>DB: UPDATE showtimeseats SET Status = Available, HeldByUserId = NULL, Version = Version + 1
-        Worker->>Hub: Broadcast to Group showtime_1: SeatStatusChanged(seatId, status: Available)
-        Hub-->>UserA: Thông báo: Hết thời gian giữ vé!
-        Hub-->>UserB: Ghế E5, E6 chuyển lại màu xám sẵn sàng đặt vé
+    Customer->>App: Chon ghe tren so do (E5, E6)
+    App->>Server: Yeu cau giu ghe (HoldSeats)
+    Server->>DB: Kiem tra trang thai ghe trong DB
+    alt Ghe da co nguoi giu
+        DB-->>Server: Ghe dang bi khoa
+        Server-->>App: Bao loi: Ghe da duoc nguoi khac giu
+        App-->>Customer: Hien thi canh bao chon ghe khac
+    else Ghe con trong (Hop le)
+        DB-->>Server: Ghe hop le
+        Server->>DB: Cap nhat trang thai: Giu cho 5 phut
+        Server->>Hub: Phat thong bao doi trang thai ghe
+        Hub-->>Customer: Khoa ghe Xanh duong & Dem nguoc 05:00
+        Hub-->>OtherUser: Doi ghe sang mau Vang & Khoa nut bam
     end
 ```
 
 ---
 
-### 4.2. Luồng 2: Thanh toán Thành công & Transactional Outbox Pattern
+### 4.2. Luồng 2: Xác nhận Thanh toán & Gửi vé E-Ticket (Checkout & Outbox)
+
+Quy trình xác nhận thanh toán nguyên tử, khóa ghế vĩnh viễn và tiến trình nền Outbox Worker chuyển phát email vé kèm mã QR cho khách hàng:
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Customer as Khách Hàng
-    participant Controller as BookingController
-    participant PService as PaymentService
-    participant DB as MariaDB (cinema_db)
-    participant Hub as SignalR SeatBookingHub
-    participant OutboxWorker as OutboxMessageWorker (Background)
-    participant SMTP as Google SMTP Mail Server
+    actor Customer as Khach Hang
+    participant App as Ung Dung Web
+    participant Server as Payment Service
+    participant DB as Co So Du Lieu
+    participant Worker as Outbox Worker
+    participant Mail as Email Service (SMTP)
 
-    Customer->>Controller: Xác nhận Thanh Toán Đơn Vé (Checkout)
-    activate Controller
-    Controller->>PService: ConfirmPaymentAsync(paymentId, transactionCode)
-    activate PService
+    Customer->>App: Quet ma VietQR xac nhan thanh toan
+    App->>Server: Gui yeu cau xac nhan don hang
+    Server->>DB: Cap nhat don hang: Da thanh toan & Khoa ghe vinh vien
+    Server->>DB: Luu thong diep gui ve vao Outbox
+    Server-->>App: Thong bao thanh toan thanh cong
+    App-->>Customer: Hien thi man hinh Dat ve thanh cong
 
-    Note over PService, DB: MỞ LOCAL TRANSACTION DUY NHẤT (Serializable)
-    PService->>DB: BEGIN TRANSACTION (Serializable)
-    PService->>DB: UPDATE payments SET Status = Paid, PaidAt = UtcNow
-    PService->>DB: UPDATE bookings SET Status = Confirmed, PaymentStatus = Paid
-    PService->>DB: UPDATE showtimeseats SET Status = Reserved, Version = Version + 1
-    PService->>DB: UPDATE tickets SET Status = Issued, QrPayload = 'cinema-ticket:{BookingId}:{TicketCode}'
-    
-    Note over PService, DB: TRANSACTIONAL OUTBOX: Lưu sự kiện gửi Email vé vào DB
-    PService->>DB: INSERT INTO outboxmessages (Id, Type: 'TicketEmail', Payload: JSON, IsProcessed: 0, RetryCount: 0)
-    PService->>DB: COMMIT TRANSACTION
-    
-    PService->>Hub: Broadcast to Group: SeatStatusChanged (status: Reserved)
-    PService-->>Controller: Giao dịch thành công
-    deactivate PService
-    Controller-->>Customer: HTTP 200 OK: Trả về Màn hình Đặt Vé Thành Công trong tích tắc
-    deactivate Controller
+    Note over DB, Mail: Tien trinh nen tu dong xu ly gui Email
+    Worker->>DB: Quet thong diep ve cho gui
+    Worker->>Mail: Gui Email ve dien tu kem ma QR
+    Mail-->>Customer: Nhan E-Ticket trong hop thu
+    Worker->>DB: Danh dau da gui thanh cong
+```
 
-    Note over OutboxWorker, SMTP: Tiến trình nền Outbox Worker quét hàng đợi mỗi 5 giây
-    loop Quét định kỳ mỗi 5 giây
-        OutboxWorker->>DB: SELECT * FROM outboxmessages WHERE IsProcessed = 0 AND RetryCount < 3
-        activate OutboxWorker
-        DB-->>OutboxWorker: Danh sách tin nhắn chờ gửi (kèm Payload BookingId, Email)
-        OutboxWorker->>SMTP: Kết nối SMTP Gmail (Port 587) gửi thư E-Ticket kèm QR Code
-        alt Gửi Email Thành Công
-            SMTP-->>OutboxWorker: 250 Message Accepted
-            OutboxWorker->>DB: UPDATE outboxmessages SET IsProcessed = 1, ProcessedAt = UtcNow
-            Customer-->>Customer: Nhận Email vé xem phim vào hộp thư đến
-        else Sự Cố Mạng hoặc Timeout SMTP Server
-            SMTP-->>OutboxWorker: Connection Timeout hoặc Error 503
-            OutboxWorker->>DB: UPDATE outboxmessages SET RetryCount = RetryCount + 1, ErrorMessage = 'Timeout'
-            Note over OutboxWorker: Tự động thử lại ở chu kỳ 5 giây tiếp theo (Tối đa 3 lần)
-        end
-        deactivate OutboxWorker
+---
+
+### 4.3. Luồng 3: Quầy vé Box Office: Soát vé QR & Bán vé In nhiệt K80
+
+Quy trình phục vụ tại quầy gồm soát vé QR (kiểm tra cờ chống gian lận `IsPrinted`), gợi ý bán kèm bắp nước (Upsell F&B) và in cuộn vé nhiệt 80mm:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Customer as Khach Hang
+    actor Staff as Nhan Vien Quay
+    participant POS as He Thong POS
+    participant DB as Co So Du Lieu
+    participant Printer as May In Nhiet K80
+
+    Customer->>Staff: Xuat trinh ma QR ve tren dien thoai
+    Staff->>POS: Quet ma QR bang camera POS
+    POS->>DB: Tra cuu thong tin don hang va ve
+    alt Ve da in truoc do (IsPrinted = true)
+        DB-->>POS: Trang thai: Da in ve
+        POS-->>Staff: Canh bao do: Ve da duoc su dung!
+        Staff-->>Customer: Tu choi in va chan gian lan
+    else Ve hop le (Chua in)
+        DB-->>POS: Trang thai: Hop le
+        POS-->>Staff: Hien thi thong tin suat chieu & Goi y Bap Nuoc
+        Staff->>POS: Xac nhan in ve (kem Combo F&B neu co)
+        POS->>DB: Cap nhat trang thai: IsPrinted = true
+        POS->>Printer: Gui lenh in K80
+        Printer-->>Staff: Nha cuon ve xem phim va phieu Bap Nuoc
+        Staff-->>Customer: Giao ve cung va huong dan vao phong chieu
     end
 ```
 
 ---
 
-### 4.3. Luồng 3: Quầy Vé Box Office POS: Quét QR + Upsell F&B + In Vé Nhiệt 80mm
+### 4.4. Luồng 4: Thiết kế Sơ đồ Phòng chiếu (Visual Layout Builder)
+
+Quy trình Quản trị viên cấu hình ma trận ghế 2D, thiết lập hành lang lối đi, phân loại hạng ghế (Thường, VIP, Đôi) và lưu trữ xuống CSDL:
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Customer as Khách Hàng
-    actor Staff as Nhân Viên Quầy (Staff)
-    participant POS_UI as Giao Diện POS (/Counter/Index)
-    participant CounterCtrl as CounterController
-    participant DB as MariaDB (cinema_db)
-    participant ThermalPrinter as Máy In Hóa Đơn Nhiệt K80 (80mm)
+    actor Admin as Quan Tri Vien
+    participant UI as Layout Studio UI
+    participant Server as Screening Room Service
+    participant DB as Co So Du Lieu
 
-    Customer->>Staff: Đưa màn hình điện thoại có mã QR Vé
-    Staff->>POS_UI: Bật Camera Quét QR (hoặc nhập mã đơn BK-DEMO-...)
-    POS_UI->>CounterCtrl: POST /Counter/ScanBookingQr { code }
-    activate CounterCtrl
-    CounterCtrl->>DB: SELECT * FROM bookings INCLUDE Tickets, Concessions WHERE BookingCode = @code
-    DB-->>CounterCtrl: Thông tin đơn hàng, danh sách vé và F&B
+    Admin->>UI: Chon phong chieu can thiet ke
+    UI->>Server: Lay cau truc phong chieu hien tai
+    Server->>DB: Truy van danh sach ghe va hang ghe
+    DB-->>Server: Tra ve so do phong
+    Server-->>UI: Hien thi ma tran luoi ghe 2D CSS Grid
 
-    alt TRƯỜNG HỢP VÉ ĐÃ ĐƯỢC IN TRƯỚC ĐÓ (IsPrinted == true)
-        CounterCtrl-->>POS_UI: Phản hồi vé đã in: alreadyPrinted = true
-        POS_UI-->>Staff: Bật cảnh báo đỏ: Vé đã được in trước đó, từ chối in lại!
-        Staff-->>Customer: Chặn lại, từ chối in vé (Phát hiện gian lận dùng lại QR)
-    else TRƯỜNG HỢP VÉ HỢP LỆ (Chưa in vé cứng)
-        CounterCtrl-->>POS_UI: Phản hồi hợp lệ: Thông tin vé và danh mục F&B
-        deactivate CounterCtrl
-        POS_UI-->>Staff: Hiển thị chi tiết ghế và bảng gợi ý Upsell Bắp Nước
-        
-        Staff->>Customer: Tư vấn dùng thêm Combo Bắp Phô Mai và Nước ngọt
-        Customer->>Staff: Đồng ý mua thêm 1 Bắp Phô Mai và 2 Coca Lớn
-        Staff->>POS_UI: Bấm chọn thêm 1 Bắp Phô Mai và 2 Coca (+120.000đ)
-        Staff->>POS_UI: Chọn phương thức thu tiền mặt (Cash)
-        Staff->>Customer: Thu tiền mặt 120.000đ
-        Staff->>POS_UI: Bấm nút Xác Nhận và In Vé Nhiệt 80mm
+    Admin->>UI: Thiet lap loi di va gan Hang ghe (Thuong, VIP, Doi)
+    UI->>UI: Kiem tra hop le vi tri ghe tren luoi ma tran
 
-        POS_UI->>CounterCtrl: POST /Counter/ConfirmPrintAndUpsell { bookingId, upsellItems, paymentMethod }
-        activate CounterCtrl
-        CounterCtrl->>DB: BEGIN TRANSACTION (Serializable)
-        Note over CounterCtrl, DB: Kiểm tra lại cờ IsPrinted trong Transaction chống Race Condition
-        CounterCtrl->>DB: INSERT INTO bookingconcessions (món bắp nước mua thêm)
-        CounterCtrl->>DB: INSERT INTO payments (Amount: 120k, Method: Cash, Status: Paid)
-        CounterCtrl->>DB: UPDATE tickets SET IsPrinted = true, PrintedAt = UtcNow, PrintedByUserId = @staffId, ThermalReceiptCode = 'POS80-...'
-        CounterCtrl->>DB: COMMIT TRANSACTION
-        CounterCtrl-->>POS_UI: Phản hồi thành công: printUrl = /Counter/PrintThermalTicket
-        deactivate CounterCtrl
-
-        POS_UI->>ThermalPrinter: Kích hoạt in tự động window.print()
-        ThermalPrinter-->>Staff: Nhả phiếu vé nhiệt 80mm rời từng ghế và phiếu F&B Voucher
-        Staff-->>Customer: Giao vé cứng vào phòng chiếu và phiếu nhận bắp nước
-    end
-```
-
----
-
-### 4.4. Luồng 4: Trình Thiết Kế Sơ Đồ Phòng Chiếu (Visual Seat Layout Builder Studio)
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Admin as Quản Trị Viên (Admin)
-    participant StudioUI as Layout Studio (/ScreeningRoom/LayoutBuilder)
-    participant RoomCtrl as ScreeningRoomController
-    participant Engine as SeatLayoutStudio Engine
-    participant DB as MariaDB (cinema_db)
-
-    Admin->>StudioUI: Truy cập Studio thiết kế phòng chiếu RoomId = 1
-    StudioUI->>RoomCtrl: GET /ScreeningRoom/LayoutBuilder?id=1
-    RoomCtrl->>DB: SELECT FROM screeningrooms, seats, seattypes WHERE RoomId = 1
-    DB-->>RoomCtrl: Dữ liệu cấu trúc lưới và danh mục hạng ghế
-    RoomCtrl-->>StudioUI: Render giao diện ma trận 2D CSS Grid (TotalRows x TotalCols)
-
-    Note over Admin, StudioUI: Thao tác 1: Bật hoặc Tắt Hành lang Lối đi (Aisle Configurator)
-    Admin->>StudioUI: Nhấp nút Đặt Hành lang Dọc tại Cột 4 và Cột 13
-    StudioUI->>StudioUI: Đánh dấu Cột 4 và 13 là lối đi trống, tự động xóa ghế ở cột này
-
-    Note over Admin, StudioUI: Thao tác 2: Dùng cọ vẽ Hạng Ghế (Seat Type Painter)
-    Admin->>StudioUI: Chọn cọ Ghế Đôi Sweetbox (ColSpan = 2)
-    Admin->>StudioUI: Nhấp vào ô Hàng 10, Cột 3 (nằm sát trước hành lang Cột 4)
-    StudioUI->>Engine: ValidateCoupleSeatPlacement(row: 10, col: 3)
-    activate Engine
-    Note over Engine: Kiểm tra: Cột tiếp theo là Cột 4 (Hành lang) => Không hợp lệ!
-    Engine-->>StudioUI: Phản hồi lỗi: Ghế đôi không được lấn vào cột hành lang
-    deactivate Engine
-    StudioUI-->>Admin: Hiển thị cảnh báo và chặn không cho gán ghế đôi
-
-    Admin->>StudioUI: Nhấp vào ô hợp lệ Hàng 10, Cột 5
-    StudioUI->>Engine: ValidateCoupleSeatPlacement(row: 10, col: 5)
-    activate Engine
-    Note over Engine: Cột 5 và Cột 6 đều thuộc Block trung tâm => Hợp lệ
-    Engine-->>StudioUI: Phản hồi hợp lệ: Cho phép đặt ghế đôi
-    deactivate Engine
-    StudioUI->>StudioUI: Gán ghế đôi J2 tại Cột 5 chiếm Cột 5 và 6 (ColSpan = 2)
-
-    Note over Admin, StudioUI: Thao tác 3: Click lại để xóa ghế
-    Admin->>StudioUI: Nhấp vào một ghế đã có sẵn một lần nữa
-    StudioUI->>StudioUI: Ghế chuyển thành ô trống (Xóa ghế)
-
-    Note over Admin, StudioUI: Thao tác 4: Lưu Sơ đồ Phòng chiếu xuống Database
-    Admin->>StudioUI: Bấm nút Lưu Cấu Trúc Phòng Chiếu
-    StudioUI->>Engine: RecalculateLabelsAndSeatNumbers(matrix)
-    activate Engine
-    Note over Engine: Tự động đánh nhãn hàng A B C và số ghế 1 2 3 bỏ qua lối đi
-    Engine-->>StudioUI: Danh sách ghế SeatDto[] đã chuẩn hóa
-    deactivate Engine
-
-    StudioUI->>RoomCtrl: POST /ScreeningRoom/SaveSeatLayout { roomId, totalRows, totalCols, seats[] }
-    activate RoomCtrl
-    RoomCtrl->>DB: BEGIN TRANSACTION (Serializable)
-    RoomCtrl->>DB: DELETE FROM seats WHERE RoomId = @roomId AND chưa có vé
-    RoomCtrl->>DB: INSERT INTO seats (GridRow, GridCol, RowLabel, SeatNumber, ColSpan, SeatTypeId)
-    RoomCtrl->>DB: Đồng bộ an toàn bảng showtimeseats cho các suất chiếu tương lai
-    RoomCtrl->>DB: COMMIT TRANSACTION
-    RoomCtrl-->>StudioUI: Phản hồi thành công: Đã lưu sơ đồ phòng chiếu
-    deactivate RoomCtrl
-    StudioUI-->>Admin: Cập nhật giao diện thành công và hiển thị tổng số ghế thực tế
+    Admin->>UI: Nhan nut Luu cau truc phong chieu
+    UI->>Server: Gui ma tran ghe da thiet ke
+    Server->>DB: Luu danh sach ghe va cap nhat so do phong
+    DB-->>Server: Xac nhan luu thanh cong
+    Server-->>UI: Thong bao cap nhat phong chieu thanh cong
+    UI-->>Admin: Hien thi tong so ghe va so do hoan chinh
 ```
