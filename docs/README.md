@@ -5,7 +5,7 @@ Thư mục `docs/` chứa toàn bộ bộ tài liệu đặc tả kỹ thuật, 
 
 ---
 
-## 📚 MỤC LỤC TỔNG HỢP CÁC TÀI LIỆU
+## MỤC LỤC TỔNG HỢP CÁC TÀI LIỆU
 
 | STT | Tài Liệu | Nội Dung Trọng Tâm | Tệp Tin |
 | :---: | :--- | :--- | :--- |
@@ -18,7 +18,7 @@ Thư mục `docs/` chứa toàn bộ bộ tài liệu đặc tả kỹ thuật, 
 
 ---
 
-## 🎯 CÁC TÍNH NĂNG & ĐỘT PHÁ CÔNG NGHỆ CHÍNH
+## CÁC TÍNH NĂNG & ĐỘT PHÁ CÔNG NGHỆ CHÍNH
 
 1. **Real-time SignalR Seat Map (< 50ms)**: Đồng bộ tức thì trạng thái giữ ghế trên ma trận 2D CSS Grid giữa hàng trăm người dùng cùng suất chiếu qua WebSockets.
 2. **Transactional Outbox Pattern (Zero Email Loss)**: Đảm bảo 100% email vé điện tử E-Ticket kèm mã QR cá nhân hóa được gửi tin cậy ngay cả khi mất điện đột ngột hoặc máy chủ thư điện tử gián đoạn.
