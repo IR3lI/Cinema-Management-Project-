@@ -25,6 +25,8 @@ Cơ sở dữ liệu của **CineManagement** được thiết kế đáp ứng 
 
 ## 2. SƠ ĐỒ QUAN HỆ THỰC THỂ TỔNG THỂ (MERMAID ERD 15 BẢNG CHUẨN 3NF)
 
+> **File thiết kế Draw.io gốc**: [`erd_cinemanagement.drawio`](./erd_cinemanagement.drawio) *(Mở trực tiếp trên Draw.io hoặc [app.diagrams.net](https://app.diagrams.net))*
+
 ```mermaid
 erDiagram
     roles ||--o{ users : "phân quyền (1-N)"
