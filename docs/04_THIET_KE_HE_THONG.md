@@ -210,31 +210,7 @@ sequenceDiagram
 
 ---
 
-### 4.4. Luồng 4: Thiết kế Sơ đồ Phòng chiếu (Visual Layout Builder)
 
-Quy trình Quản trị viên cấu hình ma trận ghế 2D, thiết lập hành lang lối đi, phân loại hạng ghế (Thường, VIP, Đôi) và lưu trữ xuống CSDL:
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Admin as Quan Tri Vien
-    participant UI as Layout Studio UI
-    participant Server as Screening Room Service
-    participant DB as Co So Du Lieu
-
-    Admin->>UI: Chon phong chieu can thiet ke
-    UI->>Server: Lay cau truc phong chieu hien tai
-    Server->>DB: Truy van danh sach ghe va hang ghe
-    DB-->>Server: Tra ve so do phong
-    Server-->>UI: Hien thi ma tran luoi ghe 2D CSS Grid
-
-    Admin->>UI: Thiet lap loi di va gan Hang ghe (Thuong, VIP, Doi)
-    UI->>UI: Kiem tra hop le vi tri ghe tren luoi ma tran
-
-    Admin->>UI: Nhan nut Luu cau truc phong chieu
-    UI->>Server: Gui ma tran ghe da thiet ke
-    Server->>DB: Luu danh sach ghe va cap nhat so do phong
-    DB-->>Server: Xac nhan luu thanh cong
-    Server-->>UI: Thong bao cap nhat phong chieu thanh cong
     UI-->>Admin: Hien thi tong so ghe va so do hoan chinh
 ```
