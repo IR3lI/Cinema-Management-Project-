@@ -1,0 +1,96 @@
+@model LoginViewModel
+@{
+    ViewData["Title"] = "Đăng nhập";
+    Layout = "_Layout";
+}
+
+<div class="flex items-center justify-center py-6 md:py-12">
+    <div class="w-full max-w-md">
+        <!-- Login Card -->
+        <div class="rounded-3xl border border-[#E7E2D9] bg-white p-8 shadow-sm relative overflow-hidden">
+            <!-- Card Header -->
+            <div class="text-center mb-8 relative z-10">
+                <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 shadow-2xs">
+                    <i class="ph-bold ph-user-circle text-3xl"></i>
+                </div>
+                <h2 class="text-2xl font-black tracking-tight text-stone-900">Chào mừng trở lại</h2>
+                <p class="mt-1 text-xs text-stone-500 font-medium">Đăng nhập tài khoản CineStar của bạn</p>
+            </div>
+
+            <!-- Form -->
+            <form asp-action="Login" method="post" class="space-y-4 relative z-10">
+                <input type="hidden" asp-for="ReturnUrl" />
+                
+                @if (!ViewData.ModelState.IsValid && ViewData.ModelState[string.Empty]?.Errors.Count > 0)
+                {
+                    <div asp-validation-summary="ModelOnly" class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 flex items-start gap-2">
+                        <i class="ph-bold ph-warning-circle text-base shrink-0 mt-0.5"></i>
+                        <div>@Html.ValidationSummary(true)</div>
+                    </div>
+                }
+
+                <!-- Email Input -->
+                <div class="space-y-1">
+                    <label asp-for="Email" class="block text-xs font-bold uppercase tracking-wider text-stone-600">Địa chỉ Email</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-stone-400">
+                            <i class="ph ph-envelope-simple text-base"></i>
+                        </div>
+                        <input asp-for="Email" 
+                               class="w-full rounded-xl border border-stone-200 bg-stone-50 pl-10 pr-4 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:bg-white focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 transition-all font-medium" 
+                               placeholder="name@example.com" />
+                    </div>
+                    <span asp-validation-for="Email" class="text-xs text-rose-600 font-medium"></span>
+                </div>
+
+                <!-- Password Input -->
+                <div class="space-y-1">
+                    <label asp-for="Password" class="block text-xs font-bold uppercase tracking-wider text-stone-600">Mật khẩu</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-stone-400">
+                            <i class="ph ph-lock-key text-base"></i>
+                        </div>
+                        <input asp-for="Password" type="password"
+                               class="w-full rounded-xl border border-stone-200 bg-stone-50 pl-10 pr-4 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:bg-white focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 transition-all font-medium" 
+                               placeholder="••••••••" />
+                    </div>
+                    <span asp-validation-for="Password" class="text-xs text-rose-600 font-medium"></span>
+                </div>
+
+                <!-- Remember Me Checkbox -->
+                <div class="flex items-center justify-between pt-1">
+                    <label class="flex items-center gap-2 cursor-pointer text-xs text-stone-600 select-none">
+                        <input asp-for="RememberMe" 
+                               class="h-4 w-4 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer" />
+                        <span>Ghi nhớ đăng nhập</span>
+                    </label>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" 
+                        class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white shadow-md hover:bg-emerald-700 transition-all cursor-pointer">
+                    <i class="ph-bold ph-sign-in text-base"></i>
+                    Đăng nhập
+                </button>
+            </form>
+
+            <!-- Card Footer Links -->
+            <div class="mt-6 border-t border-stone-200 pt-5 text-center text-xs text-stone-500 flex flex-col gap-2 relative z-10">
+                <p>
+                    Chưa có tài khoản?
+                    <a asp-action="Register" class="font-bold text-emerald-700 hover:text-emerald-800 transition-colors ml-1">
+                        Tạo tài khoản mới
+                    </a>
+                </p>
+                <div class="flex items-center justify-center gap-1.5 text-stone-400 text-[11px] pt-1">
+                    <i class="ph ph-shield-check text-sm text-emerald-600"></i>
+                    <span>Tài khoản Demo Khách: <strong class="text-stone-600">customer@cinema.com</strong> / <strong class="text-stone-600">Customer@123</strong></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

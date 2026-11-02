@@ -1,0 +1,510 @@
+@model ProfileViewModel
+@{
+    ViewData["Title"] = "Hồ sơ cá nhân";
+    Layout = "_Layout";
+}
+
+<div class="max-w-6xl mx-auto space-y-7 pb-12">
+
+    <!-- ── Breadcrumb ── -->
+    <nav class="flex items-center gap-2 text-xs font-semibold text-stone-500">
+        <a asp-controller="Home" asp-action="Index" class="hover:text-stone-800 transition-colors flex items-center gap-1.5">
+            <i class="ph ph-house text-sm"></i> Trang chủ
+        </a>
+        <i class="ph ph-caret-right text-stone-400 text-xs"></i>
+        <span class="text-emerald-700 font-bold">Hồ sơ cá nhân</span>
+    </nav>
+
+    <!-- ── Hero Banner: Profile Identity Card ── -->
+    <div class="rounded-3xl border border-[#E7E2D9] bg-white p-6 sm:p-8 shadow-sm">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            
+            <!-- Left: Avatar & Identity -->
+            <div class="flex items-center gap-5 sm:gap-6">
+                <!-- Avatar with preview and edit badge -->
+                <div class="relative group shrink-0">
+                    <div class="h-24 w-24 sm:h-28 sm:w-28 rounded-full ring-4 ring-emerald-100 bg-stone-100 shadow-sm overflow-hidden flex items-center justify-center border border-stone-200">
+                        @if (!string.IsNullOrEmpty(Model.AvatarUrl))
+                        {
+                            <img id="avatarPreview" src="@Model.AvatarUrl" alt="Avatar" class="h-full w-full object-cover" />
+                        }
+                        else
+                        {
+                            <img id="avatarPreview" src="" alt="Avatar" class="h-full w-full object-cover hidden" />
+                            <div id="avatarFallback" class="h-full w-full bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-white font-extrabold text-3xl sm:text-4xl select-none">
+                                @(string.IsNullOrWhiteSpace(Model.FullName) ? "U" : Model.FullName.Substring(0, 1).ToUpper())
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Camera button triggers file input -->
+                    <label for="AvatarFile" class="absolute bottom-0 right-0 h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-md flex items-center justify-center cursor-pointer transition-all hover:scale-110 ring-2 ring-white" title="Đổi ảnh đại diện">
+                        <i class="ph-bold ph-camera text-sm sm:text-base"></i>
+                    </label>
+                </div>
+
+                <!-- Info text -->
+                <div class="space-y-1.5 min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h1 class="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight truncate">
+                            @Model.FullName
+                        </h1>
+                        @if (Model.IsStaff || Model.IsAdmin)
+                        {
+                            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 border border-emerald-300 text-emerald-800 shadow-2xs">
+                                <i class="ph-fill ph-shield-check text-emerald-600"></i>
+                                @(Model.IsAdmin ? "Quản trị viên" : "Nhân viên rạp")
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 border border-amber-200 text-amber-800 shadow-2xs">
+                                <i class="ph-fill ph-seal-check text-amber-600"></i>
+                                Thành viên thân thiết
+                            </span>
+                        }
+                    </div>
+
+                    <p class="text-sm text-stone-600 flex items-center gap-1.5 truncate">
+                        <i class="ph ph-envelope-simple text-stone-400"></i>
+                        @Model.Email
+                        <span class="inline-flex items-center text-emerald-600 text-xs gap-0.5 ml-1" title="Email đã xác thực">
+                            <i class="ph-fill ph-check-circle text-xs"></i>
+                        </span>
+                    </p>
+
+                    <div class="flex flex-wrap items-center gap-4 text-xs text-stone-500 pt-1">
+                        @if (Model.IsStaff || Model.IsAdmin)
+                        {
+                            <span class="flex items-center gap-1 font-semibold text-stone-700">
+                                <i class="ph ph-identification-card text-emerald-600"></i>
+                                Mã NV: <span class="font-mono text-emerald-700">@Model.StaffCode</span>
+                            </span>
+                            @if (!string.IsNullOrEmpty(Model.Position))
+                            {
+                                <span class="flex items-center gap-1 font-medium text-stone-600">
+                                    <i class="ph ph-briefcase text-stone-400"></i>
+                                    @Model.Position
+                                </span>
+                            }
+                        }
+                        else
+                        {
+                            <span class="flex items-center gap-1">
+                                <i class="ph ph-calendar-blank text-stone-400"></i>
+                                Thành viên từ @Model.CreatedAt.ToString("MM/yyyy")
+                            </span>
+                        }
+                        @if (!string.IsNullOrEmpty(Model.PhoneNumber))
+                        {
+                            <span class="flex items-center gap-1">
+                                <i class="ph ph-phone text-stone-400"></i>
+                                @Model.PhoneNumber
+                            </span>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Activity Stats Chips -->
+            <div class="grid grid-cols-3 gap-3 sm:gap-4 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-stone-200">
+                @if (Model.IsStaff || Model.IsAdmin)
+                {
+                    <!-- Staff KPI 1: Checked-in Tickets -->
+                    <div class="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3.5 sm:p-4 text-center shadow-2xs">
+                        <div class="flex items-center justify-center text-emerald-700 mb-1">
+                            <i class="ph-bold ph-qr-code text-xl"></i>
+                        </div>
+                        <div class="text-xl sm:text-2xl font-black text-emerald-950">@Model.CheckedInCount</div>
+                        <div class="text-[11px] uppercase tracking-wider text-emerald-800 font-bold mt-0.5">Vé đã soát</div>
+                    </div>
+
+                    <!-- Staff KPI 2: Department -->
+                    <div class="rounded-2xl border border-stone-200 bg-stone-50/80 p-3.5 sm:p-4 text-center shadow-2xs">
+                        <div class="flex items-center justify-center text-stone-700 mb-1">
+                            <i class="ph-bold ph-buildings text-xl"></i>
+                        </div>
+                        <div class="text-sm sm:text-base font-bold text-stone-900 truncate" title="@Model.Department">
+                            @(Model.Department ?? "Vận hành")
+                        </div>
+                        <div class="text-[11px] uppercase tracking-wider text-stone-500 font-semibold mt-0.5">Phòng ban</div>
+                    </div>
+
+                    <!-- Staff KPI 3: Status -->
+                    <div class="rounded-2xl border border-stone-200 bg-stone-50/80 p-3.5 sm:p-4 text-center shadow-2xs">
+                        <div class="flex items-center justify-center text-emerald-600 mb-1">
+                            <i class="ph-bold ph-check-circle text-xl"></i>
+                        </div>
+                        <div class="text-sm sm:text-base font-black text-emerald-700">Đang hoạt động</div>
+                        <div class="text-[11px] uppercase tracking-wider text-stone-500 font-semibold mt-0.5">Trạng thái</div>
+                    </div>
+                }
+                else
+                {
+                    <!-- Customer KPI 1 -->
+                    <div class="rounded-2xl border border-stone-200 bg-stone-50/80 p-3.5 sm:p-4 text-center shadow-2xs">
+                        <div class="flex items-center justify-center text-emerald-600 mb-1">
+                            <i class="ph-bold ph-ticket text-xl"></i>
+                        </div>
+                        <div class="text-xl sm:text-2xl font-black text-stone-900">@Model.TotalTickets</div>
+                        <div class="text-[11px] uppercase tracking-wider text-stone-500 font-semibold mt-0.5">Vé đã mua</div>
+                    </div>
+
+                    <!-- Customer KPI 2 -->
+                    <div class="rounded-2xl border border-stone-200 bg-stone-50/80 p-3.5 sm:p-4 text-center shadow-2xs">
+                        <div class="flex items-center justify-center text-emerald-600 mb-1">
+                            <i class="ph-bold ph-shopping-bag text-xl"></i>
+                        </div>
+                        <div class="text-xl sm:text-2xl font-black text-stone-900">@Model.TotalBookings</div>
+                        <div class="text-[11px] uppercase tracking-wider text-stone-500 font-semibold mt-0.5">Đơn đặt vé</div>
+                    </div>
+
+                    <!-- Customer KPI 3 -->
+                    <div class="rounded-2xl border border-stone-200 bg-stone-50/80 p-3.5 sm:p-4 text-center shadow-2xs">
+                        <div class="flex items-center justify-center text-emerald-600 mb-1">
+                            <i class="ph-bold ph-coins text-xl"></i>
+                        </div>
+                        <div class="text-lg sm:text-2xl font-black text-stone-900">
+                            @(Model.TotalSpent > 1000000 ? (Model.TotalSpent / 1000000m).ToString("0.#") + "Tr" : Model.TotalSpent.ToString("N0"))
+                        </div>
+                        <div class="text-[11px] uppercase tracking-wider text-stone-500 font-semibold mt-0.5">Tổng chi tiêu</div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Main Content Grid (2 Columns) ── -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
+
+        <!-- Left Column: Navigation & Staff Actions (4 cols) -->
+        <div class="lg:col-span-4 space-y-5">
+
+            <!-- Navigation Links -->
+            <div class="rounded-2xl border border-[#E7E2D9] bg-white p-3 shadow-sm">
+                <div class="px-3 py-2 text-xs font-bold text-stone-400 uppercase tracking-wider">Tài khoản &amp; Tiện ích</div>
+                <nav class="space-y-1">
+                    <a asp-action="Profile" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-emerald-50 text-emerald-800 font-bold text-sm border border-emerald-200 shadow-2xs">
+                        <i class="ph-bold ph-user-circle text-lg text-emerald-600"></i>
+                        <span>Thông tin hồ sơ</span>
+                        <i class="ph ph-caret-right ml-auto text-xs opacity-70"></i>
+                    </a>
+
+                    @if (Model.IsStaff || Model.IsAdmin)
+                    {
+                        <!-- Quick action for staff: QR Scanner -->
+                        <a asp-controller="Admin" asp-action="ScanTicket" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50/60 font-bold text-sm transition-all border border-emerald-100">
+                            <i class="ph-bold ph-qr-code text-lg text-emerald-600"></i>
+                            <span>Soát vé vào rạp (QR)</span>
+                            <span class="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-600 text-white">Mở máy</span>
+                        </a>
+
+                        <a asp-controller="Admin" asp-action="Dashboard" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-stone-700 hover:text-stone-900 hover:bg-stone-50 font-semibold text-sm transition-all">
+                            <i class="ph-bold ph-gauge text-lg text-stone-500"></i>
+                            <span>Bảng điều khiển Quản trị</span>
+                            <i class="ph ph-arrow-up-right ml-auto text-xs text-stone-400"></i>
+                        </a>
+                    }
+
+                    <a asp-controller="Booking" asp-action="MyBookings" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-stone-700 hover:text-stone-900 hover:bg-stone-50 font-semibold text-sm transition-all">
+                        <i class="ph ph-ticket text-lg text-stone-500"></i>
+                        <span>Lịch sử đặt vé</span>
+                        @if (Model.TotalBookings > 0)
+                        {
+                            <span class="ml-auto text-xs font-bold px-2 py-0.5 rounded-full bg-stone-100 text-stone-700 border border-stone-200">@Model.TotalBookings</span>
+                        }
+                    </a>
+
+                    <a asp-action="ChangePassword" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-stone-700 hover:text-stone-900 hover:bg-stone-50 font-semibold text-sm transition-all">
+                        <i class="ph ph-key text-lg text-stone-500"></i>
+                        <span>Đổi mật khẩu</span>
+                        <i class="ph ph-caret-right ml-auto text-xs text-stone-400"></i>
+                    </a>
+                </nav>
+            </div>
+
+            <!-- Security & Staff Information Card -->
+            <div class="rounded-2xl border border-[#E7E2D9] bg-white p-5 shadow-sm space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-bold text-stone-900">Thông tin bảo mật</h3>
+                    <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span> An toàn
+                    </span>
+                </div>
+
+                <div class="space-y-2.5 text-xs">
+                    <div class="flex items-center justify-between py-2 border-b border-stone-100">
+                        <span class="text-stone-500 flex items-center gap-2">
+                            <i class="ph ph-envelope text-stone-400 text-sm"></i> Xác thực Email
+                        </span>
+                        <span class="text-emerald-700 font-bold flex items-center gap-1">
+                            <i class="ph-fill ph-check-circle"></i> Đã kích hoạt
+                        </span>
+                    </div>
+
+                    <div class="flex items-center justify-between py-2 border-b border-stone-100">
+                        <span class="text-stone-500 flex items-center gap-2">
+                            <i class="ph ph-shield-check text-stone-400 text-sm"></i> Vai trò tài khoản
+                        </span>
+                        <span class="text-stone-900 font-bold">@Model.RoleName</span>
+                    </div>
+
+                    @if (Model.IsStaff || Model.IsAdmin)
+                    {
+                        <div class="flex items-center justify-between py-2 border-b border-stone-100">
+                            <span class="text-stone-500 flex items-center gap-2">
+                                <i class="ph ph-barcode text-stone-400 text-sm"></i> Mã nhân viên
+                            </span>
+                            <span class="text-emerald-800 font-black font-mono">@Model.StaffCode</span>
+                        </div>
+                    }
+                </div>
+
+                <!-- Sign out action -->
+                <div class="pt-2 border-t border-stone-100">
+                    <form asp-action="Logout" method="post">
+                        <button type="submit" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-bold transition-all cursor-pointer">
+                            <i class="ph ph-sign-out text-sm"></i> Đăng xuất tài khoản
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column: Profile Edit Form & Staff Employment Details (8 cols) -->
+        <div class="lg:col-span-8 space-y-6">
+            
+            @if (Model.IsStaff || Model.IsAdmin)
+            {
+                <!-- Staff Employment Info Box -->
+                <div class="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/80 to-teal-50/50 p-5 shadow-xs">
+                    <div class="flex items-center justify-between mb-3 border-b border-emerald-200/80 pb-2.5">
+                        <h6 class="font-bold text-emerald-950 text-sm flex items-center gap-2 mb-0">
+                            <i class="ph-fill ph-identification-badge text-emerald-700 text-base"></i>
+                            Hồ sơ Nhân sự &amp; Công tác
+                        </h6>
+                        <span class="text-[11px] font-bold bg-emerald-600 text-white px-2.5 py-0.5 rounded-full">
+                            Chính thức
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                        <div class="p-2.5 rounded-xl bg-white border border-emerald-100 shadow-2xs">
+                            <span class="text-stone-400 block text-[10px] uppercase font-bold">Mã nhân viên</span>
+                            <strong class="text-emerald-900 font-mono font-black text-sm">@Model.StaffCode</strong>
+                        </div>
+                        <div class="p-2.5 rounded-xl bg-white border border-emerald-100 shadow-2xs">
+                            <span class="text-stone-400 block text-[10px] uppercase font-bold">Vị trí / Chức vụ</span>
+                            <strong class="text-stone-900 font-bold">@(Model.Position ?? "Nhân viên rạp")</strong>
+                        </div>
+                        <div class="p-2.5 rounded-xl bg-white border border-emerald-100 shadow-2xs">
+                            <span class="text-stone-400 block text-[10px] uppercase font-bold">Phòng ban</span>
+                            <strong class="text-stone-900 font-bold truncate block">@(Model.Department ?? "Vận hành")</strong>
+                        </div>
+                        <div class="p-2.5 rounded-xl bg-white border border-emerald-100 shadow-2xs">
+                            <span class="text-stone-400 block text-[10px] uppercase font-bold">Ngày vào làm</span>
+                            <strong class="text-stone-900 font-bold">@(Model.HireDate?.ToString("dd/MM/yyyy") ?? Model.CreatedAt.ToString("dd/MM/yyyy"))</strong>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <div class="rounded-2xl border border-[#E7E2D9] bg-white p-6 sm:p-8 shadow-sm">
+                <!-- Form Header -->
+                <div class="mb-6 pb-4 border-b border-stone-200 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-xl font-black text-stone-900 flex items-center gap-2">
+                            <i class="ph-bold ph-pencil-simple-line text-emerald-600"></i>
+                            Cập nhật thông tin cá nhân
+                        </h2>
+                        <p class="text-xs text-stone-500 mt-1">Thông tin này hiển thị trên hệ thống và sử dụng trong liên lạc ca trực</p>
+                    </div>
+                </div>
+
+                <form asp-action="Profile" method="post" enctype="multipart/form-data" class="space-y-6">
+                    @if (!ViewData.ModelState.IsValid && ViewData.ModelState[string.Empty]?.Errors.Count > 0)
+                    {
+                        <div asp-validation-summary="ModelOnly" class="rounded-xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-800 flex items-start gap-2.5">
+                            <i class="ph-bold ph-warning-circle text-lg shrink-0 mt-0.5"></i>
+                            <div>@Html.ValidationSummary(true)</div>
+                        </div>
+                    }
+
+                    <!-- 1. Avatar upload box -->
+                    <div class="space-y-2">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-stone-500">
+                            Ảnh đại diện
+                        </label>
+                        <div class="flex items-center gap-4 p-4 rounded-2xl border border-dashed border-stone-300 bg-stone-50/50 hover:border-emerald-500 transition-colors">
+                            <div class="h-14 w-14 rounded-full bg-white shrink-0 overflow-hidden ring-2 ring-stone-200 border border-stone-200">
+                                <img id="avatarMiniPreview" src="@Model.AvatarUrl" alt="" class="h-full w-full object-cover @(string.IsNullOrEmpty(Model.AvatarUrl) ? "hidden" : "")" />
+                                <div id="avatarMiniFallback" class="h-full w-full bg-stone-100 flex items-center justify-center text-stone-400 @(!string.IsNullOrEmpty(Model.AvatarUrl) ? "hidden" : "")">
+                                    <i class="ph ph-user text-2xl"></i>
+                                </div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <input asp-for="AvatarFile" id="AvatarFile" type="file" class="hidden" accept="image/*" />
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <label for="AvatarFile" class="cursor-pointer inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white hover:bg-stone-50 text-stone-800 border border-stone-300 shadow-2xs transition-colors">
+                                        <i class="ph-bold ph-upload-simple text-emerald-600"></i> Chọn ảnh mới
+                                    </label>
+                                    <span id="fileNameLabel" class="text-xs text-stone-500 truncate">Hỗ trợ JPG, PNG, WEBP (tối đa 5MB)</span>
+                                </div>
+                                <span asp-validation-for="AvatarFile" class="text-xs text-rose-600 block mt-1 font-medium"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Form fields grid -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+
+                        <!-- Full Name -->
+                        <div class="space-y-1.5">
+                            <label asp-for="FullName" class="block text-xs font-bold uppercase tracking-wider text-stone-600">
+                                Họ và tên <span class="text-rose-500">*</span>
+                            </label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-stone-400">
+                                    <i class="ph ph-user text-base"></i>
+                                </div>
+                                <input asp-for="FullName" 
+                                       class="w-full rounded-xl border border-stone-300 bg-white pl-10 pr-4 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 shadow-2xs transition-all font-medium" 
+                                       placeholder="Nguyễn Văn A" />
+                            </div>
+                            <span asp-validation-for="FullName" class="text-xs text-rose-600 font-medium"></span>
+                        </div>
+
+                        <!-- Email (Readonly) -->
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between">
+                                <label class="block text-xs font-bold uppercase tracking-wider text-stone-600">Địa chỉ Email</label>
+                                <span class="text-[11px] text-stone-400 flex items-center gap-1">
+                                    <i class="ph ph-lock text-stone-400"></i> Cố định
+                                </span>
+                            </div>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-stone-400">
+                                    <i class="ph ph-envelope-simple text-base"></i>
+                                </div>
+                                <input value="@Model.Email" readonly 
+                                       class="w-full rounded-xl border border-stone-200 bg-stone-100/70 pl-10 pr-4 py-2.5 text-sm text-stone-500 cursor-not-allowed select-none font-medium" />
+                            </div>
+                        </div>
+
+                        <!-- Phone Number -->
+                        <div class="space-y-1.5">
+                            <label asp-for="PhoneNumber" class="block text-xs font-bold uppercase tracking-wider text-stone-600">
+                                Số điện thoại
+                            </label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-stone-400">
+                                    <i class="ph ph-phone text-base"></i>
+                                </div>
+                                <input asp-for="PhoneNumber" 
+                                       class="w-full rounded-xl border border-stone-300 bg-white pl-10 pr-4 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 shadow-2xs transition-all font-medium" 
+                                       placeholder="0912 345 678" />
+                            </div>
+                            <span asp-validation-for="PhoneNumber" class="text-xs text-rose-600 font-medium"></span>
+                        </div>
+
+                        <!-- Date of Birth -->
+                        <div class="space-y-1.5">
+                            <label asp-for="DateOfBirth" class="block text-xs font-bold uppercase tracking-wider text-stone-600">
+                                Ngày sinh
+                            </label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-stone-400">
+                                    <i class="ph ph-calendar text-base"></i>
+                                </div>
+                                <input asp-for="DateOfBirth" type="date"
+                                       class="w-full rounded-xl border border-stone-300 bg-white pl-10 pr-4 py-2.5 text-sm text-stone-900 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 shadow-2xs transition-all font-medium" />
+                            </div>
+                            <span asp-validation-for="DateOfBirth" class="text-xs text-rose-600 font-medium"></span>
+                        </div>
+                    </div>
+
+                    <!-- Address -->
+                    <div class="space-y-1.5">
+                        <label asp-for="Address" class="block text-xs font-bold uppercase tracking-wider text-stone-600">
+                            Địa chỉ thường trú / liên hệ
+                        </label>
+                        <div class="relative">
+                            <div class="absolute top-3 left-3.5 pointer-events-none text-stone-400">
+                                <i class="ph ph-map-pin text-base"></i>
+                            </div>
+                            <textarea asp-for="Address" rows="2"
+                                      class="w-full rounded-xl border border-stone-300 bg-white pl-10 pr-4 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600 shadow-2xs transition-all font-medium" 
+                                      placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố..."></textarea>
+                        </div>
+                        <span asp-validation-for="Address" class="text-xs text-rose-600 font-medium"></span>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="pt-4 border-t border-stone-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <span class="text-xs text-stone-500 flex items-center gap-1.5 order-2 sm:order-1">
+                            <i class="ph-fill ph-shield-check text-emerald-600"></i> Dữ liệu hồ sơ bảo mật theo tiêu chuẩn CineStar
+                        </span>
+
+                        <div class="flex items-center gap-3 w-full sm:w-auto order-1 sm:order-2">
+                            <a asp-action="ChangePassword" 
+                               class="flex-1 sm:flex-none text-center px-4 py-2.5 rounded-xl border border-stone-300 hover:bg-stone-50 text-stone-700 text-sm font-semibold transition-colors">
+                                <i class="ph ph-key mr-1"></i> Đổi mật khẩu
+                            </a>
+                            <button type="submit" 
+                                    class="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer">
+                                <i class="ph-bold ph-floppy-disk text-base"></i>
+                                <span>Lưu thay đổi</span>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        const avatarInput = document.getElementById('AvatarFile');
+        const avatarPreview = document.getElementById('avatarPreview');
+        const avatarFallback = document.getElementById('avatarFallback');
+        const avatarMiniPreview = document.getElementById('avatarMiniPreview');
+        const avatarMiniFallback = document.getElementById('avatarMiniFallback');
+        const fileNameLabel = document.getElementById('fileNameLabel');
+
+        if (avatarInput) {
+            avatarInput.addEventListener('change', function(e) {
+                const file = e.target.files?.[0];
+                if (file) {
+                    if (fileNameLabel) {
+                        fileNameLabel.textContent = file.name + ' (' + (file.size / 1024).toFixed(0) + ' KB)';
+                        fileNameLabel.classList.add('text-emerald-700', 'font-bold');
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = function(evt) {
+                        const url = evt.target.result;
+                        if (avatarPreview) {
+                            avatarPreview.src = url;
+                            avatarPreview.classList.remove('hidden');
+                        }
+                        if (avatarFallback) {
+                            avatarFallback.classList.add('hidden');
+                        }
+                        if (avatarMiniPreview) {
+                            avatarMiniPreview.src = url;
+                            avatarMiniPreview.classList.remove('hidden');
+                        }
+                        if (avatarMiniFallback) {
+                            avatarMiniFallback.classList.add('hidden');
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+    </script>
+}
