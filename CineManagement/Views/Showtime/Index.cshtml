@@ -1,0 +1,137 @@
+@model ShowtimeIndexViewModel
+@{
+    ViewData["Title"] = "Quản lý Lịch chiếu";
+    Layout = "_AdminLayout";
+}
+
+<div class="table-container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0"><i class="bi bi-calendar-event me-2"></i>Lịch chiếu</h5>
+        <a asp-action="Create" class="btn btn-warning">
+            <i class="bi bi-plus-lg me-1"></i>Thêm lịch chiếu
+        </a>
+    </div>
+
+    <!-- Filter -->
+    <form method="get" class="row g-2 mb-4">
+        <div class="col-md-3">
+            <select name="movieId" class="form-select">
+                <option value="">– Tất cả phim –</option>
+                @foreach (var m in Model.Movies)
+                {
+                    <option value="@m.Value" selected="@(m.Value == Model.MovieId?.ToString())">@m.Text</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select name="roomId" class="form-select">
+                <option value="">– Tất cả phòng –</option>
+                @foreach (var r in Model.Rooms)
+                {
+                    <option value="@r.Value" selected="@(r.Value == Model.RoomId?.ToString())">@r.Text</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3">
+            <input type="date" name="date" class="form-control"
+                   value="@Model.Date?.ToString("yyyy-MM-dd")"
+                   placeholder="Chọn ngày" />
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-primary w-100">
+                <i class="bi bi-search me-1"></i>Tìm kiếm
+            </button>
+        </div>
+    </form>
+
+    @if (Model.Date.HasValue || Model.MovieId.HasValue || Model.RoomId.HasValue)
+    {
+        <a asp-action="Index" class="btn btn-sm btn-outline-secondary mb-3">
+            <i class="bi bi-x me-1"></i>Xóa bộ lọc
+        </a>
+    }
+
+    <!-- Group by date -->
+    @{
+        var grouped = Model.Showtimes
+            .GroupBy(s => s.StartTime.Date)
+            .OrderBy(g => g.Key);
+    }
+
+    @if (!Model.Showtimes.Any())
+    {
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-calendar-x fs-1"></i>
+            <p class="mt-2">Không tìm thấy lịch chiếu nào.</p>
+        </div>
+    }
+
+    @foreach (var dateGroup in grouped)
+    {
+        bool isToday = dateGroup.Key == DateTime.Today;
+        <div class="mb-4">
+            <div class="d-flex align-items-center mb-2">
+                <span class="badge @(isToday ? "bg-warning text-dark" : "bg-secondary") me-2 fs-6">
+                    @(isToday ? "Hôm nay" : dateGroup.Key.ToString("dddd, dd/MM/yyyy"))
+                </span>
+                <small class="text-muted">@dateGroup.Count() suất chiếu</small>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Phim</th>
+                            <th>Phòng</th>
+                            <th>Giờ chiếu</th>
+                            <th>Giờ kết thúc</th>
+                            <th>Giá vé</th>
+                            <th>Trạng thái</th>
+                            <th width="130">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var st in dateGroup.OrderBy(s => s.StartTime))
+                        {
+                            <tr class="@(st.Status == ShowtimeStatus.Canceled ? "text-muted" : "")">
+                                <td class="fw-semibold">@st.Movie?.Title</td>
+                                <td>
+                                    <span class="badge
+                                        @(st.Room?.RoomType == RoomType.VIP ? "bg-warning text-dark" :
+                                          st.Room?.RoomType == RoomType.IMAX ? "bg-dark" : "bg-secondary")">
+                                        @st.Room?.RoomName
+                                    </span>
+                                </td>
+                                <td><i class="bi bi-clock me-1 text-muted"></i>@st.StartTime.ToString("HH:mm")</td>
+                                <td>@(st.EndTime.HasValue ? st.EndTime.Value.ToString("HH:mm") : "–")</td>
+                                <td class="text-success fw-semibold">@st.TicketPrice.ToString("N0") đ</td>
+                                <td>
+                                    @switch (st.Status)
+                                    {
+                                        case ShowtimeStatus.Available: <span class="badge bg-success">Còn vé</span>  break;
+                                        case ShowtimeStatus.SoldOut:   <span class="badge bg-danger">Hết vé</span>   break;
+                                        case ShowtimeStatus.Canceled:  <span class="badge bg-secondary">Đã hủy</span> break;
+                                        default:                       <span class="badge bg-dark">Kết thúc</span>   break;
+                                    }
+                                </td>
+                                <td>
+                                    <a asp-action="Edit" asp-route-id="@st.ShowtimeId" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    @if (st.Status != ShowtimeStatus.Canceled && User.IsInRole("Admin"))
+                                    {
+                                        <form asp-action="Delete" asp-route-id="@st.ShowtimeId" method="post" class="d-inline"
+                                              onsubmit="return confirm('Hủy suất chiếu này?')">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="bi bi-x-circle"></i>
+                                            </button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>

@@ -1,0 +1,93 @@
+@model Movie
+@{
+    ViewData["Title"] = Model.Title;
+    Layout = "_AdminLayout";
+}
+
+<div class="table-container">
+    <div class="d-flex align-items-center mb-4">
+        <a asp-action="Index" class="btn btn-outline-secondary btn-sm me-3">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <h5 class="fw-bold mb-0">Chi tiết phim</h5>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-3 text-center">
+            @if (!string.IsNullOrEmpty(Model.PosterUrl))
+            {
+                <img src="@Model.PosterUrl" class="img-fluid rounded shadow" alt="Poster" style="max-height:350px" />
+            }
+            else
+            {
+                <div class="bg-secondary rounded d-flex align-items-center justify-content-center text-white" style="height:300px">
+                    <div><i class="bi bi-film fs-1"></i><br/>Chưa có ảnh bìa</div>
+                </div>
+            }
+        </div>
+        <div class="col-md-9">
+            <h3 class="fw-bold">@Model.Title</h3>
+            <div class="mb-2">
+                @switch (Model.Status)
+                {
+                    case MovieStatus.NowShowing:
+                        <span class="badge bg-success fs-6">Đang chiếu</span>
+                        break;
+                    case MovieStatus.ComingSoon:
+                        <span class="badge bg-warning text-dark fs-6">Sắp chiếu</span>
+                        break;
+                    default:
+                        <span class="badge bg-secondary fs-6">Kết thúc</span>
+                        break;
+                }
+                @if (!string.IsNullOrEmpty(Model.AgeRating))
+                {
+                    <span class="badge bg-danger ms-2">@Model.AgeRating</span>
+                }
+                @if (Model.Genre != null)
+                {
+                    <span class="badge bg-info ms-2">@Model.Genre.Name</span>
+                }
+            </div>
+
+            @if (Model.Rating > 0)
+            {
+                <div class="mb-2 text-warning fs-5">
+                    <i class="bi bi-star-fill"></i> @Model.Rating / 10
+                </div>
+            }
+
+            <table class="table table-borderless table-sm w-auto">
+                <tr><th class="text-muted pe-4">Đạo diễn</th><td>@(Model.Director ?? "–")</td></tr>
+                <tr><th class="text-muted pe-4">Diễn viên</th><td>@(Model.Actors ?? "–")</td></tr>
+                <tr><th class="text-muted pe-4">Thời lượng</th><td>@Model.Duration phút</td></tr>
+                <tr><th class="text-muted pe-4">Ngôn ngữ</th><td>@(Model.Language ?? "–")</td></tr>
+                <tr><th class="text-muted pe-4">Khởi chiếu</th><td>@Model.ReleaseDate?.ToString("dd/MM/yyyy")</td></tr>
+                <tr><th class="text-muted pe-4">Kết thúc</th><td>@Model.EndDate?.ToString("dd/MM/yyyy")</td></tr>
+                <tr><th class="text-muted pe-4">Ngày tạo</th><td>@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td></tr>
+            </table>
+
+            <p class="text-muted">@(Model.Description ?? "Chưa có mô tả.")</p>
+
+            @if (!string.IsNullOrEmpty(Model.TrailerUrl))
+            {
+                <a href="@Model.TrailerUrl" target="_blank" class="btn btn-danger btn-sm me-2">
+                    <i class="bi bi-youtube me-1"></i>Xem trailer
+                </a>
+            }
+
+            <a asp-action="Edit" asp-route-id="@Model.MovieId" class="btn btn-primary btn-sm me-2">
+                <i class="bi bi-pencil me-1"></i>Chỉnh sửa
+            </a>
+            @if (User.IsInRole("Admin"))
+            {
+                <form asp-action="Delete" asp-route-id="@Model.MovieId" method="post" class="d-inline"
+                      onsubmit="return confirm('Bạn có chắc chắn muốn xóa phim này?')">
+                    <button type="submit" class="btn btn-danger btn-sm">
+                        <i class="bi bi-trash me-1"></i>Xóa phim
+                    </button>
+                </form>
+            }
+        </div>
+    </div>
+</div>

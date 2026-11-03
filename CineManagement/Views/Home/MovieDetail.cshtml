@@ -1,0 +1,560 @@
+@model Movie
+@{
+    ViewData["Title"] = Model.Title;
+    Layout = "_Layout";
+    var showtimesByDate = ViewBag.ShowtimesByDate as Dictionary<DateTime, List<Showtime>>
+                         ?? new Dictionary<DateTime, List<Showtime>>();
+    var dateKeys = showtimesByDate.Keys.OrderBy(d => d).ToList();
+
+    var reviews = ViewBag.Reviews as List<Review> ?? new List<Review>();
+    decimal avgRating = ViewBag.AverageRating != null ? (decimal)ViewBag.AverageRating : Model.Rating;
+    int totalReviews = ViewBag.TotalReviews != null ? (int)ViewBag.TotalReviews : reviews.Count;
+    var starCounts = ViewBag.StarCounts as int[] ?? new int[6];
+    var myReview = ViewBag.MyReview as Review;
+    bool hasVerifiedTicket = ViewBag.HasVerifiedTicket == true;
+    var verifiedUserIds = ViewBag.VerifiedUserIds as HashSet<string> ?? new HashSet<string>();
+}
+
+<div class="rounded-3xl border border-[#E7E2D9] bg-white p-6 md:p-8 shadow-sm">
+    <div class="flex gap-8 flex-col md:flex-row">
+
+        <!-- Poster -->
+        <div class="flex-shrink-0 w-full md:w-64">
+            @if (!string.IsNullOrEmpty(Model.PosterUrl))
+            {
+                <img src="@Model.PosterUrl" alt="@Model.Title"
+                     class="w-full rounded-2xl shadow-md object-cover border border-stone-200"
+                     style="max-height:380px;object-fit:cover" />
+            }
+            else
+            {
+                <div class="w-full rounded-2xl bg-stone-100 border border-stone-200 flex items-center justify-center text-stone-400" style="height:360px">
+                    <i class="ph ph-film-strip text-5xl"></i>
+                </div>
+            }
+        </div>
+
+        <!-- Info -->
+        <div class="flex-1 min-w-0">
+            <!-- Badges -->
+            <div class="flex flex-wrap gap-2 mb-3">
+                @switch (Model.Status)
+                {
+                    case MovieStatus.NowShowing:
+                        <span class="px-3 py-1 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold">Đang chiếu</span>
+                        break;
+                    case MovieStatus.ComingSoon:
+                        <span class="px-3 py-1 rounded-full bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold">Sắp chiếu</span>
+                        break;
+                    default:
+                        <span class="px-3 py-1 rounded-full bg-stone-100 text-stone-600 text-xs font-bold">Kết thúc</span>
+                        break;
+                }
+                @if (!string.IsNullOrEmpty(Model.AgeRating))
+                {
+                    <span class="px-3 py-1 rounded-full bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold">@Model.AgeRating</span>
+                }
+                @if (Model.Genre != null)
+                {
+                    <span class="px-3 py-1 rounded-full bg-sky-100 border border-sky-200 text-sky-800 text-xs font-bold">@Model.Genre.Name</span>
+                }
+            </div>
+
+            <h1 class="text-2xl md:text-3xl font-black text-stone-900 mb-2 leading-tight">@Model.Title</h1>
+
+            @if (avgRating > 0 || totalReviews > 0)
+            {
+                <div class="flex items-center gap-2 mb-4 flex-wrap">
+                    <div class="flex items-center gap-1 text-amber-500">
+                        @for (int s = 1; s <= 5; s++)
+                        {
+                            if (s <= Math.Floor((double)avgRating))
+                            {
+                                <i class="ph-fill ph-star text-lg"></i>
+                            }
+                            else if (s - 0.5 <= (double)avgRating)
+                            {
+                                <i class="ph-fill ph-star-half text-lg"></i>
+                            }
+                            else
+                            {
+                                <i class="ph ph-star text-lg text-stone-300"></i>
+                            }
+                        }
+                    </div>
+                    <span class="text-amber-700 font-black text-lg">@avgRating.ToString("0.0")</span>
+                    <span class="text-stone-400 text-sm font-semibold">/ 5</span>
+                    <a href="#reviews-section" class="text-emerald-700 hover:text-emerald-800 text-xs font-semibold hover:underline bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                        @totalReviews đánh giá
+                    </a>
+                </div>
+            }
+
+            <!-- Meta table -->
+            <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm mb-5 pb-5 border-b border-stone-100">
+                @if (!string.IsNullOrEmpty(Model.Director))
+                {
+                    <div class="text-stone-500 font-medium">Đạo diễn:</div>
+                    <div class="text-stone-900 font-semibold">@Model.Director</div>
+                }
+                @if (!string.IsNullOrEmpty(Model.Actors))
+                {
+                    <div class="text-stone-500 font-medium">Diễn viên:</div>
+                    <div class="text-stone-900 font-semibold">@Model.Actors</div>
+                }
+                @if (Model.Duration > 0)
+                {
+                    <div class="text-stone-500 font-medium">Thời lượng:</div>
+                    <div class="text-stone-900 font-semibold">@Model.Duration phút</div>
+                }
+                @if (!string.IsNullOrEmpty(Model.Language))
+                {
+                    <div class="text-stone-500 font-medium">Ngôn ngữ:</div>
+                    <div class="text-stone-900 font-semibold">@Model.Language</div>
+                }
+                @if (Model.ReleaseDate.HasValue)
+                {
+                    <div class="text-stone-500 font-medium">Khởi chiếu:</div>
+                    <div class="text-stone-900 font-semibold">@Model.ReleaseDate.Value.ToString("dd/MM/yyyy")</div>
+                }
+            </div>
+
+            @if (!string.IsNullOrEmpty(Model.Description))
+            {
+                <p class="text-stone-600 text-sm leading-relaxed mb-6 font-normal">@Model.Description</p>
+            }
+
+            <div class="flex gap-3 flex-wrap">
+                @if (!string.IsNullOrEmpty(Model.TrailerUrl))
+                {
+                    <a href="@Model.TrailerUrl" target="_blank"
+                       class="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold transition-all flex items-center gap-2 shadow-xs">
+                        <i class="ph ph-play-circle text-lg"></i> Xem trailer
+                    </a>
+                }
+                <a asp-action="Index"
+                   class="px-5 py-2.5 rounded-xl border border-stone-300 hover:bg-stone-50 text-stone-700 text-sm font-semibold transition-colors flex items-center gap-2 shadow-2xs">
+                    <i class="ph ph-arrow-left"></i> Danh sách phim
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Lịch chiếu ─────────────────────────────────────────────────── -->
+<div class="mt-10">
+    <div class="flex items-center gap-2.5 mb-6">
+        <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg shadow-2xs">
+            <i class="ph ph-calendar-check"></i>
+        </div>
+        <h3 class="text-xl font-black text-stone-900">Lịch chiếu phim</h3>
+    </div>
+
+    @if (!showtimesByDate.Any())
+    {
+        <div class="rounded-3xl border border-dashed border-[#E7E2D9] bg-white p-12 text-center shadow-xs">
+            <i class="ph ph-calendar-x text-5xl text-stone-300 block mb-3"></i>
+            <p class="text-stone-500 text-sm font-medium">Hiện tại chưa có suất chiếu nào sắp tới cho phim này.</p>
+        </div>
+    }
+    else
+    {
+        <!-- Date tabs -->
+        <div class="flex gap-2 mb-6 overflow-x-auto pb-1 flex-wrap">
+            @for (int i = 0; i < dateKeys.Count; i++)
+            {
+                var d = dateKeys[i];
+                bool isToday = d.Date == DateTime.Today;
+                string dayName = isToday ? "Hôm nay" : d.ToVietnameseDayOfWeek();
+                <button type="button"
+                        class="date-tab flex-shrink-0 flex flex-col items-center px-5 py-2.5 rounded-xl border text-sm font-medium transition-all cursor-pointer shadow-2xs
+                               @(i == 0 ? "bg-emerald-600 border-emerald-600 text-white font-bold" : "bg-white border-[#E7E2D9] text-stone-600 hover:bg-stone-50")"
+                        data-target="day-@d.ToString("yyyyMMdd")">
+                    <span class="text-xs opacity-80">@dayName</span>
+                    <span class="font-black text-sm">@d.ToString("dd/MM")</span>
+                </button>
+            }
+        </div>
+
+        <!-- Showtime panels -->
+        @for (int i = 0; i < dateKeys.Count; i++)
+        {
+            var d = dateKeys[i];
+            var slots = showtimesByDate[d];
+            <div class="day-panel @(i == 0 ? "" : "hidden")" id="day-@d.ToString("yyyyMMdd")">
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5">
+                    @foreach (var st in slots)
+                    {
+                        string roomBadgeCls = st.Room?.RoomType switch {
+                            RoomType.VIP  => "bg-amber-100 border-amber-200 text-amber-800",
+                            RoomType.IMAX => "bg-purple-100 border-purple-200 text-purple-800",
+                            _             => "bg-stone-100 border-stone-200 text-stone-700"
+                        };
+
+                        <div class="rounded-2xl border border-[#E7E2D9] bg-white p-4 flex flex-col gap-2 hover:border-emerald-500 hover:shadow-md transition-all shadow-2xs">
+                            <!-- Time -->
+                            <div class="text-2xl font-black text-stone-900 text-center tracking-tight">
+                                @st.StartTime.ToString("HH:mm")
+                            </div>
+                            @if (st.EndTime.HasValue)
+                            {
+                                <div class="text-[11px] text-stone-400 text-center font-medium">→ @st.EndTime.Value.ToString("HH:mm")</div>
+                            }
+
+                            <!-- Room badge -->
+                            <div class="text-center">
+                                <span class="px-2.5 py-0.5 rounded-full border text-xs font-bold @roomBadgeCls">
+                                    @st.Room?.RoomName
+                                </span>
+                            </div>
+
+                            <!-- Price -->
+                            <div class="text-center text-emerald-700 font-black text-sm mt-1">
+                                @st.TicketPrice.ToString("N0") đ
+                            </div>
+
+                            <!-- Book button -->
+                            @if (User.Identity?.IsAuthenticated == true)
+                            {
+                                <a asp-controller="Booking" asp-action="SelectSeat"
+                                   asp-route-showtimeId="@st.ShowtimeId"
+                                   class="mt-auto w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold text-center transition-all shadow-2xs">
+                                    Chọn suất này
+                                </a>
+                            }
+                            else
+                            {
+                                <a asp-controller="Account" asp-action="Login"
+                                   asp-route-returnUrl="@Url.Action("MovieDetail","Home",new{id=Model.MovieId})"
+                                   class="mt-auto w-full py-2 rounded-xl border border-stone-300 text-stone-600 hover:bg-stone-50 text-xs font-semibold text-center transition-all flex items-center justify-center gap-1">
+                                    <i class="ph ph-lock"></i> Đăng nhập
+                                </a>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<!-- ── Đánh giá & Bình luận từ khán giả (SCRUM-28) ─────────────────── -->
+<div class="mt-12" id="reviews-section">
+    <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
+        <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-lg shadow-2xs">
+                <i class="ph-fill ph-star"></i>
+            </div>
+            <div>
+                <h3 class="text-xl font-black text-stone-900 leading-none">Đánh giá &amp; Bình luận</h3>
+                <span class="text-xs text-stone-500 font-medium">Khán giả nói gì về bộ phim này</span>
+            </div>
+        </div>
+        <span class="px-3 py-1 rounded-full bg-stone-100 border border-stone-200 text-stone-700 text-xs font-bold">
+            Tổng cộng: @totalReviews đánh giá
+        </span>
+    </div>
+
+    @if (TempData["ReviewSuccess"] != null)
+    {
+        <div class="mb-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-semibold flex items-center gap-3 shadow-xs">
+            <i class="ph-fill ph-check-circle text-emerald-600 text-xl flex-shrink-0"></i>
+            <span>@TempData["ReviewSuccess"]</span>
+        </div>
+    }
+
+    @if (TempData["ReviewError"] != null)
+    {
+        <div class="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm font-semibold flex items-center gap-3 shadow-xs">
+            <i class="ph-fill ph-warning-circle text-rose-600 text-xl flex-shrink-0"></i>
+            <span>@TempData["ReviewError"]</span>
+        </div>
+    }
+
+    <!-- Rating Summary Dashboard Card -->
+    <div class="rounded-3xl border border-[#E7E2D9] bg-white p-6 md:p-8 mb-8 shadow-sm">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+            
+            <!-- Left Score Column -->
+            <div class="md:col-span-4 flex flex-col items-center justify-center text-center p-4 border-b md:border-b-0 md:border-r border-stone-100">
+                <div class="text-5xl md:text-6xl font-black text-stone-900 tracking-tight mb-2">
+                    @(avgRating > 0 ? avgRating.ToString("0.0") : "0.0")
+                </div>
+                <div class="flex items-center gap-1 text-amber-400 text-xl mb-2">
+                    @for (int s = 1; s <= 5; s++)
+                    {
+                        if (s <= Math.Floor((double)avgRating))
+                        {
+                            <i class="ph-fill ph-star"></i>
+                        }
+                        else if (s - 0.5 <= (double)avgRating)
+                        {
+                            <i class="ph-fill ph-star-half"></i>
+                        }
+                        else
+                        {
+                            <i class="ph ph-star text-stone-200"></i>
+                        }
+                    }
+                </div>
+                <p class="text-stone-500 text-xs font-semibold">
+                    Dựa trên <strong class="text-stone-800">@totalReviews</strong> lượt đánh giá từ khán giả
+                </p>
+            </div>
+
+            <!-- Right Breakdown Bars Column -->
+            <div class="md:col-span-8 flex flex-col gap-2.5">
+                @for (int s = 5; s >= 1; s--)
+                {
+                    int count = starCounts[s];
+                    int pct = totalReviews > 0 ? (int)Math.Round((double)count * 100 / totalReviews) : 0;
+                    <div class="flex items-center gap-3 text-xs">
+                        <div class="w-14 flex items-center gap-1 font-bold text-stone-700 flex-shrink-0">
+                            <span>@s</span>
+                            <i class="ph-fill ph-star text-amber-400"></i>
+                        </div>
+                        <div class="flex-1 h-3 rounded-full bg-stone-100 overflow-hidden relative">
+                            <div class="h-full rounded-full bg-amber-400 transition-all duration-500" style="width: @pct%"></div>
+                        </div>
+                        <div class="w-16 text-right font-medium text-stone-400 flex-shrink-0">
+                            <span class="text-stone-700 font-bold">@count</span>
+                            <span class="text-[10px]">(@pct%)</span>
+                        </div>
+                    </div>
+                }
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Submit / Edit Review Card -->
+    <div class="rounded-3xl border border-[#E7E2D9] bg-white p-6 md:p-8 mb-8 shadow-sm">
+        @if (User.Identity?.IsAuthenticated == true)
+        {
+            <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <h4 class="text-base font-black text-stone-900 flex items-center gap-2">
+                    <i class="ph-fill ph-pencil-simple-line text-emerald-600"></i>
+                    @(myReview != null ? "Chỉnh sửa đánh giá của bạn" : "Viết đánh giá của bạn")
+                </h4>
+                @if (hasVerifiedTicket)
+                {
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+                        <i class="ph-fill ph-seal-check text-emerald-600"></i> Bạn đã mua vé xem phim này
+                    </span>
+                }
+            </div>
+
+            <form asp-controller="Home" asp-action="SubmitReview" method="post" id="reviewForm" class="space-y-4">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="movieId" value="@Model.MovieId" />
+                <input type="hidden" name="rating" id="selectedRating" value="@(myReview?.Rating ?? 5)" />
+
+                <!-- Star picker -->
+                <div>
+                    <label class="block text-xs font-bold text-stone-600 uppercase tracking-wider mb-2">Đánh giá số sao:</label>
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-1 cursor-pointer" id="starPicker">
+                            @for (int s = 1; s <= 5; s++)
+                            {
+                                int currentRating = myReview?.Rating ?? 5;
+                                <button type="button" class="star-btn p-1 text-2xl transition-transform hover:scale-110 focus:outline-none" data-value="@s" title="@s sao">
+                                    <i class="@(s <= currentRating ? "ph-fill ph-star text-amber-400" : "ph ph-star text-stone-300")"></i>
+                                </button>
+                            }
+                        </div>
+                        <span class="text-sm font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-xl border border-amber-200" id="starLabel">
+                            @(myReview != null ? $"{myReview.Rating} sao - {(myReview.Rating == 5 ? "Rất tuyệt vời" : myReview.Rating == 4 ? "Phim hay" : myReview.Rating == 3 ? "Bình thường" : myReview.Rating == 2 ? "Tệ" : "Rất tệ")}" : "5 sao - Rất tuyệt vời")
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Comment text -->
+                <div>
+                    <label class="block text-xs font-bold text-stone-600 uppercase tracking-wider mb-2">Nhận xét của bạn (không bắt buộc):</label>
+                    <textarea name="comment" rows="3" maxlength="1000"
+                              class="w-full px-4 py-3 rounded-2xl border border-stone-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 text-sm text-stone-800 placeholder-stone-400 transition-all outline-none resize-y"
+                              placeholder="Hãy chia sẻ cảm nhận chân thực về nội dung, diễn xuất, âm thanh, hình ảnh...">@(myReview?.Comment)</textarea>
+                </div>
+
+                <!-- Form actions -->
+                <div class="flex items-center justify-between pt-2 flex-wrap gap-3">
+                    <button type="submit"
+                            class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition-all shadow-xs flex items-center gap-2">
+                        <i class="ph ph-paper-plane-tilt"></i>
+                        @(myReview != null ? "Cập nhật đánh giá" : "Gửi đánh giá")
+                    </button>
+
+                    @if (myReview != null)
+                    {
+                        <button type="submit"
+                                asp-action="DeleteReview"
+                                asp-route-movieId="@Model.MovieId"
+                                onclick="return confirm('Bạn có chắc chắn muốn xóa bài đánh giá này?');"
+                                class="px-4 py-2 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-semibold transition-colors flex items-center gap-1.5">
+                            <i class="ph ph-trash"></i> Xóa đánh giá
+                        </button>
+                    }
+                </div>
+            </form>
+        }
+        else
+        {
+            <div class="text-center py-4">
+                <div class="w-12 h-12 rounded-2xl bg-stone-100 text-stone-500 flex items-center justify-center mx-auto mb-3 text-2xl">
+                    <i class="ph ph-chat-circle-dots"></i>
+                </div>
+                <h4 class="text-base font-bold text-stone-900 mb-1">Bạn muốn chia sẻ cảm nhận về bộ phim này?</h4>
+                <p class="text-stone-500 text-xs mb-4">Đăng nhập tài khoản để gửi đánh giá và nhận xét cùng cộng đồng người xem rạp.</p>
+                <a asp-controller="Account" asp-action="Login"
+                   asp-route-returnUrl="@Url.Action("MovieDetail", "Home", new { id = Model.MovieId })"
+                   class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs">
+                    <i class="ph ph-sign-in"></i> Đăng nhập để đánh giá
+                </a>
+            </div>
+        }
+    </div>
+
+    <!-- Reviews List -->
+    <div class="space-y-4">
+        @if (!reviews.Any())
+        {
+            <div class="rounded-3xl border border-dashed border-[#E7E2D9] bg-white p-12 text-center shadow-xs">
+                <i class="ph ph-chat-circle text-5xl text-stone-300 block mb-3"></i>
+                <h4 class="text-sm font-bold text-stone-700 mb-1">Chưa có đánh giá nào cho phim này</h4>
+                <p class="text-stone-400 text-xs">Hãy là người đầu tiên thưởng thức và chia sẻ cảm nhận của bạn!</p>
+            </div>
+        }
+        else
+        {
+            @foreach (var rev in reviews)
+            {
+                bool isMyRev = (myReview != null && rev.ReviewId == myReview.ReviewId);
+                bool isVerified = verifiedUserIds.Contains(rev.UserId);
+                string reviewerName = rev.User?.FullName ?? "Khán giả";
+                string initial = !string.IsNullOrWhiteSpace(reviewerName) ? reviewerName.Substring(0, 1).ToUpper() : "K";
+
+                <div class="rounded-3xl border border-[#E7E2D9] bg-white p-5 md:p-6 shadow-2xs transition-all hover:border-stone-300 @(isMyRev ? "ring-2 ring-emerald-500/20 bg-emerald-50/10" : "")">
+                    <div class="flex items-start justify-between gap-4 mb-3">
+                        <div class="flex items-center gap-3">
+                            <!-- Avatar -->
+                            <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-stone-100 to-stone-200 border border-stone-300 text-stone-700 font-black flex items-center justify-center text-sm shadow-2xs flex-shrink-0">
+                                @initial
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="font-bold text-stone-900 text-sm">@reviewerName</span>
+                                    @if (isVerified)
+                                    {
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-bold">
+                                            <i class="ph-fill ph-seal-check"></i> Đã xem tại rạp
+                                        </span>
+                                    }
+                                    @if (isMyRev)
+                                    {
+                                        <span class="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[11px] font-bold">
+                                            Đánh giá của bạn
+                                        </span>
+                                    }
+                                </div>
+                                <span class="text-[11px] text-stone-400 font-medium">@rev.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
+                            </div>
+                        </div>
+
+                        <!-- Stars -->
+                        <div class="flex items-center gap-1 text-amber-400 flex-shrink-0">
+                            @for (int s = 1; s <= 5; s++)
+                            {
+                                if (s <= rev.Rating)
+                                {
+                                    <i class="ph-fill ph-star text-base"></i>
+                                }
+                                else
+                                {
+                                    <i class="ph ph-star text-base text-stone-200"></i>
+                                }
+                            }
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(rev.Comment))
+                    {
+                        <p class="text-stone-700 text-sm leading-relaxed font-normal whitespace-pre-line pl-1">@rev.Comment</p>
+                    }
+                    else
+                    {
+                        <p class="text-stone-400 text-xs italic pl-1">Khán giả không để lại nhận xét bằng chữ.</p>
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // Date tab switching
+    document.querySelectorAll('.date-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Update tab styles
+            document.querySelectorAll('.date-tab').forEach(t => {
+                t.className = 'date-tab flex-shrink-0 flex flex-col items-center px-5 py-2.5 rounded-xl border text-sm font-medium transition-all cursor-pointer shadow-2xs bg-white border-[#E7E2D9] text-stone-600 hover:bg-stone-50';
+            });
+            tab.className = 'date-tab flex-shrink-0 flex flex-col items-center px-5 py-2.5 rounded-xl border text-sm transition-all cursor-pointer shadow-2xs bg-emerald-600 border-emerald-600 text-white font-bold';
+
+            // Show/hide panels
+            document.querySelectorAll('.day-panel').forEach(p => p.classList.add('hidden'));
+            document.getElementById(tab.dataset.target)?.classList.remove('hidden');
+        });
+    });
+
+    // Star rating picker interactivity
+    (function () {
+        const starContainer = document.getElementById('starPicker');
+        if (!starContainer) return;
+
+        const starBtns = starContainer.querySelectorAll('.star-btn');
+        const hiddenInput = document.getElementById('selectedRating');
+        const starLabel = document.getElementById('starLabel');
+
+        const labels = {
+            1: '1 sao - Rất tệ',
+            2: '2 sao - Tệ',
+            3: '3 sao - Bình thường',
+            4: '4 sao - Phim hay',
+            5: '5 sao - Rất tuyệt vời'
+        };
+
+        function renderStars(rating) {
+            starBtns.forEach(btn => {
+                const val = parseInt(btn.dataset.value, 10);
+                const icon = btn.querySelector('i');
+                if (val <= rating) {
+                    icon.className = 'ph-fill ph-star text-amber-400';
+                } else {
+                    icon.className = 'ph ph-star text-stone-300';
+                }
+            });
+            if (starLabel && labels[rating]) {
+                starLabel.textContent = labels[rating];
+            }
+        }
+
+        starBtns.forEach(btn => {
+            btn.addEventListener('mouseenter', () => {
+                const val = parseInt(btn.dataset.value, 10);
+                renderStars(val);
+            });
+            btn.addEventListener('click', () => {
+                const val = parseInt(btn.dataset.value, 10);
+                hiddenInput.value = val;
+                renderStars(val);
+            });
+        });
+
+        starContainer.addEventListener('mouseleave', () => {
+            const currentVal = parseInt(hiddenInput.value, 10) || 5;
+            renderStars(currentVal);
+        });
+    })();
+</script>
+}
