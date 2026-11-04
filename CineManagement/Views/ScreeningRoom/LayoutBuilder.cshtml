@@ -1,0 +1,921 @@
+@model ScreeningRoom
+@{
+    ViewData["Title"] = $"Thiết kế Sơ đồ – {Model.RoomName}";
+    Layout = "_AdminLayout";
+    var seatTypes = ViewBag.SeatTypes as List<SeatType> ?? new List<SeatType>();
+    var standardType = seatTypes.FirstOrDefault(st => st.Code == "STANDARD") ?? seatTypes.FirstOrDefault();
+    var vipType = seatTypes.FirstOrDefault(st => st.Code == "VIP") ?? seatTypes.FirstOrDefault();
+    var coupleType = seatTypes.FirstOrDefault(st => st.Code == "COUPLE") ?? seatTypes.FirstOrDefault();
+}
+
+@Html.AntiForgeryToken()
+<div class="container-fluid px-0">
+    <!-- Header & Action Bar -->
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 pb-2 border-bottom">
+        <div class="d-flex align-items-center gap-3">
+            <a asp-action="Details" asp-route-id="@Model.RoomId" class="btn btn-outline-secondary btn-sm rounded-circle p-2" title="Quay lại chi tiết phòng">
+                <i class="bi bi-arrow-left fs-6"></i>
+            </a>
+            <div>
+                <div class="d-flex align-items-center gap-2">
+                    <h4 class="fw-black mb-0 text-dark">Studio Thiết Kế Sơ Đồ Lưới – @Model.RoomName</h4>
+                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill fw-bold">
+                        @(Model.Cinema?.Name ?? "CineStar")
+                    </span>
+                </div>
+                <small class="text-muted">
+                    Tùy biến kích thước lưới, tạo lối đi đa hành lang, ghép ghế đôi chống lấn hành lang &amp; tự động đánh số ghế
+                </small>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 align-items-center">
+            <button type="button" class="btn btn-outline-secondary btn-sm px-3 fw-semibold" onclick="resetToInitialLayout()">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>Khôi phục ban đầu
+            </button>
+            <button type="button" class="btn btn-success btn-sm px-4 py-2 fw-bold shadow-sm rounded-3" id="btnSaveLayout" onclick="saveLayoutToServer()">
+                <i class="bi bi-floppy-fill me-1.5"></i>💾 LƯU SƠ ĐỒ PHÒNG CHIẾU
+            </button>
+        </div>
+    </div>
+
+    <!-- Control Toolbar (Kích thước ma trận, Mẫu sơ đồ, Cọ vẽ) -->
+    <div class="card border-0 shadow-sm rounded-4 bg-white p-3 mb-4">
+        <div class="row g-3 align-items-center">
+            <!-- 1. Kích thước ma trận -->
+            <div class="col-12 col-xl-4 border-end-xl">
+                <label class="form-label small fw-bold text-dark mb-1">
+                    <i class="bi bi-grid-3x3 me-1 text-primary"></i>Kích thước ma trận lưới 2D:
+                </label>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="input-group input-group-sm" style="width: 120px;">
+                        <span class="input-group-text bg-light text-muted">Hàng</span>
+                        <input type="number" id="inputTotalRows" class="form-control text-center fw-bold" value="@Model.TotalRows" min="3" max="25" />
+                    </div>
+                    <span class="text-muted fw-bold">&times;</span>
+                    <div class="input-group input-group-sm" style="width: 120px;">
+                        <span class="input-group-text bg-light text-muted">Cột</span>
+                        <input type="number" id="inputTotalCols" class="form-control text-center fw-bold" value="@Model.TotalCols" min="4" max="30" />
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm px-2.5 fw-semibold" onclick="applyCustomGridSize()">
+                        Đổi lưới
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. Mẫu sơ đồ có sẵn (Templates) -->
+            <div class="col-12 col-xl-4 border-end-xl">
+                <label class="form-label small fw-bold text-dark mb-1">
+                    <i class="bi bi-layout-text-window-reverse me-1 text-warning"></i>Mẫu sơ đồ rạp có sẵn (Templates):
+                </label>
+                <div class="d-flex gap-1.5 flex-wrap">
+                    <button type="button" class="btn btn-outline-dark btn-sm text-xs py-1 px-2 fw-semibold" onclick="applyTemplate('standard')">
+                        🏢 Tiêu chuẩn (10&times;16)
+                    </button>
+                    <button type="button" class="btn btn-outline-dark btn-sm text-xs py-1 px-2 fw-semibold" onclick="applyTemplate('cozy')">
+                        🛋️ Phòng nhỏ (8&times;12)
+                    </button>
+                    <button type="button" class="btn btn-outline-dark btn-sm text-xs py-1 px-2 fw-semibold" onclick="applyTemplate('imax')">
+                        🎬 IMAX Lớn (12&times;20)
+                    </button>
+                    <button type="button" class="btn btn-outline-danger btn-sm text-xs py-1 px-2" onclick="applyTemplate('clear')">
+                        🗑️ Xóa hết
+                    </button>
+                </div>
+            </div>
+
+            <!-- 3. Bảng chọn cọ vẽ (Seat Type Painter) -->
+            <div class="col-12 col-xl-4">
+                <label class="form-label small fw-bold text-dark mb-1">
+                    <i class="bi bi-brush me-1 text-success"></i>Cọ vẽ loại ghế (Click ô để gán):
+                </label>
+                <div class="d-flex gap-1.5 flex-wrap" id="paletteGroup">
+                    <button type="button" class="btn btn-sm palette-btn active" data-type="STANDARD" data-id="@(standardType?.SeatTypeId ?? 1)" style="border: 2px solid #64748b; background: #1e293b; color: #fff;">
+                        🪑 Thường
+                    </button>
+                    <button type="button" class="btn btn-sm palette-btn" data-type="VIP" data-id="@(vipType?.SeatTypeId ?? 2)" style="border: 2px solid #d97706; background: #78350f; color: #fef3c7;">
+                        👑 VIP
+                    </button>
+                    <button type="button" class="btn btn-sm palette-btn" data-type="COUPLE" data-id="@(coupleType?.SeatTypeId ?? 3)" style="border: 2px solid #9333ea; background: #581c87; color: #f3e8ff;">
+                        💕 Đôi (2 ô)
+                    </button>
+                    <button type="button" class="btn btn-sm palette-btn" data-type="EMPTY" data-id="0" style="border: 2px dashed #94a3b8; background: #f8fafc; color: #64748b;">
+                        🚶 Hành lang
+                    </button>
+                    <button type="button" class="btn btn-sm palette-btn" data-type="MAINT" data-id="-1" style="border: 2px solid #ef4444; background: #450a0a; color: #fca5a5;">
+                        🔧 Bảo trì
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Statistics Summary -->
+        <div class="d-flex gap-3 align-items-center pt-3 mt-3 border-top flex-wrap small text-muted">
+            <span><i class="bi bi-info-circle me-1 text-primary"></i>Thống kê trực tiếp:</span>
+            <span>Tổng ghế: <strong class="text-dark" id="statTotal">0</strong></span>
+            <span>&bull; Thường: <strong class="text-secondary" id="statStd">0</strong></span>
+            <span>&bull; VIP: <strong class="text-warning" id="statVip">0</strong></span>
+            <span>&bull; Đôi: <strong class="text-purple" id="statCouple" style="color: #9333ea;">0</strong></span>
+            <span>&bull; Bảo trì: <strong class="text-danger" id="statMaint">0</strong></span>
+            <span>&bull; Ma trận: <strong class="text-primary" id="statDims">0 &times; 0</strong></span>
+            <span class="ms-auto text-success fw-bold"><i class="bi bi-shield-check me-1"></i>Đã kích hoạt thuật toán chống lấn hành lang</span>
+        </div>
+    </div>
+
+    <!-- ═══ 2D CSS GRID STUDIO WORKSPACE ═══════════════════════════════ -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden bg-dark text-white p-3 p-md-4 mb-4" style="min-height: 580px;">
+        <!-- Top Screen Display -->
+        <div class="text-center mb-4">
+            <div style="height: 10px; width: 68%; margin: 0 auto; background: linear-gradient(180deg, #10b981 0%, transparent 100%); border-radius: 50% 50% 0 0; box-shadow: 0 0 20px rgba(16,185,129,0.5);"></div>
+            <span class="text-white-50 fw-black text-xs letter-spacing-3" style="font-size: 11px; letter-spacing: 3px;">MÀN HÌNH CHIẾU (SCREEN)</span>
+        </div>
+
+        <!-- Matrix Workspace Container -->
+        <div class="overflow-auto pb-4" style="max-height: 65vh;">
+            <div id="gridWorkspace" class="d-flex flex-column align-items-center" style="min-width: fit-content; margin: 0 auto;">
+                <!-- Rendered dynamically by JS -->
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // ══════════════════════════════════════════════════════════════════════════
+    // DATA MODEL & STATE
+    // ══════════════════════════════════════════════════════════════════════════
+    const roomId = @Model.RoomId;
+    let totalRows = @Model.TotalRows;
+    let totalCols = @Model.TotalCols;
+
+    const seatTypesConfig = {
+        STANDARD: { id: @(standardType?.SeatTypeId ?? 1), code: 'STANDARD', name: 'Thường', colSpan: 1, color: '#1e293b', border: '#64748b', textColor: '#ffffff' },
+        VIP:      { id: @(vipType?.SeatTypeId ?? 2), code: 'VIP', name: 'VIP', colSpan: 1, color: '#78350f', border: '#d97706', textColor: '#fef3c7' },
+        COUPLE:   { id: @(coupleType?.SeatTypeId ?? 3), code: 'COUPLE', name: 'Ghế đôi', colSpan: 2, color: '#581c87', border: '#9333ea', textColor: '#f3e8ff' }
+    };
+
+    // Initial server seats
+    const initialSeats = [
+        @foreach (var s in Model.Seats)
+        {
+            <text>{
+                gridRow: @s.GridRow,
+                gridCol: @s.GridCol,
+                colSpan: @(s.SeatType?.ColSpan ?? 1),
+                seatTypeId: @s.SeatTypeId,
+                typeCode: '@(s.SeatType?.Code ?? "STANDARD")',
+                rowLabel: '@s.RowLabel',
+                seatNumber: @s.SeatNumber,
+                isActive: @(s.IsActive ? "true" : "false")
+            },</text>
+        }
+    ];
+
+    // Current working seats matrix: map key `${r}_${c}` -> seat object
+    let seatMap = new Map();
+    let currentPaintMode = 'STANDARD'; // STANDARD, VIP, COUPLE, EMPTY, MAINT
+
+    // Aisle state sets
+    let verticalAisles = new Set();
+    let horizontalAisles = new Set();
+
+    function initSeatMapFromData(data) {
+        seatMap.clear();
+        verticalAisles.clear();
+        horizontalAisles.clear();
+
+        data.forEach(s => {
+            seatMap.set(`${s.gridRow}_${s.gridCol}`, {
+                gridRow: s.gridRow,
+                gridCol: s.gridCol,
+                colSpan: s.colSpan || 1,
+                seatTypeId: s.seatTypeId,
+                typeCode: s.typeCode || 'STANDARD',
+                rowLabel: s.rowLabel || 'A',
+                seatNumber: s.seatNumber || 1,
+                isActive: s.isActive !== false
+            });
+        });
+
+        detectAisles();
+        recalculateLabels();
+        renderGrid();
+    }
+
+    function resetToInitialLayout() {
+        if (confirm('Bạn có chắc muốn khôi phục lại sơ đồ ban đầu?')) {
+            totalRows = @Model.TotalRows;
+            totalCols = @Model.TotalCols;
+            document.getElementById('inputTotalRows').value = totalRows;
+            document.getElementById('inputTotalCols').value = totalCols;
+            initSeatMapFromData(initialSeats);
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // AISLE DETECTION & NON-OVERFLOW LOGIC
+    // ══════════════════════════════════════════════════════════════════════════
+    function detectAisles() {
+        verticalAisles.clear();
+        horizontalAisles.clear();
+
+        // Check columns that have zero seats
+        for (let c = 1; c <= totalCols; c++) {
+            let hasSeat = false;
+            for (let r = 1; r <= totalRows; r++) {
+                if (seatMap.has(`${r}_${c}`)) { hasSeat = true; break; }
+                // Also check if occupied by a couple seat from c - 1
+                if (c > 1 && seatMap.has(`${r}_${c - 1}`)) {
+                    const prev = seatMap.get(`${r}_${c - 1}`);
+                    if (prev.colSpan > 1) { hasSeat = true; break; }
+                }
+            }
+            if (!hasSeat) verticalAisles.add(c);
+        }
+
+        // Check rows that have zero seats
+        for (let r = 1; r <= totalRows; r++) {
+            let hasSeat = false;
+            for (let c = 1; c <= totalCols; c++) {
+                if (seatMap.has(`${r}_${c}`)) { hasSeat = true; break; }
+            }
+            if (!hasSeat) horizontalAisles.add(r);
+        }
+    }
+
+    function getColumnBlocks() {
+        const blocks = [];
+        let start = null;
+        for (let c = 1; c <= totalCols; c++) {
+            if (!verticalAisles.has(c)) {
+                if (start === null) start = c;
+            } else {
+                if (start !== null) {
+                    blocks.push({ start: start, end: c - 1 });
+                    start = null;
+                }
+            }
+        }
+        if (start !== null) {
+            blocks.push({ start: start, end: totalCols });
+        }
+        return blocks;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // AUTO RE-NUMBERING (A, B, C... & 1, 2, 3...)
+    // ══════════════════════════════════════════════════════════════════════════
+    function recalculateLabels() {
+        const validLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+        let letterIdx = 0;
+
+        for (let r = 1; r <= totalRows; r++) {
+            // Find all seats in this row sorted by col
+            const rowSeats = [];
+            for (let c = 1; c <= totalCols; c++) {
+                if (seatMap.has(`${r}_${c}`)) {
+                    rowSeats.push(seatMap.get(`${r}_${c}`));
+                }
+            }
+
+            if (rowSeats.length === 0) {
+                continue; // Empty/Aisle row, skip letter
+            }
+
+            const currentLetter = validLetters[letterIdx % validLetters.length];
+            letterIdx++;
+
+            rowSeats.sort((a, b) => a.gridCol - b.gridCol);
+            let num = 1;
+            rowSeats.forEach(s => {
+                s.rowLabel = currentLetter;
+                s.seatNumber = num++;
+            });
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // RENDERING
+    // ══════════════════════════════════════════════════════════════════════════
+    function renderGrid() {
+        const container = document.getElementById('gridWorkspace');
+        container.innerHTML = '';
+
+        document.getElementById('statDims').textContent = `${totalRows} × ${totalCols}`;
+
+        // 1. Column Header Row (Numbers + Aisle Toggles)
+        const colHeaderWrapper = document.createElement('div');
+        colHeaderWrapper.className = 'd-flex align-items-center mb-2';
+        colHeaderWrapper.style.paddingLeft = '80px'; // Offset for row labels
+
+        const colHeaderGrid = document.createElement('div');
+        colHeaderGrid.style.display = 'grid';
+        colHeaderGrid.style.gridTemplateColumns = `repeat(${totalCols}, 38px)`;
+        colHeaderGrid.style.gap = '6px';
+
+        for (let c = 1; c <= totalCols; c++) {
+            const isAisle = verticalAisles.has(c);
+            const colHeader = document.createElement('div');
+            colHeader.className = `text-center rounded-2 p-1 ${isAisle ? 'bg-danger-subtle text-danger border border-danger-subtle' : 'bg-slate-800 text-white-50'}`;
+            colHeader.style.cursor = 'pointer';
+            colHeader.title = isAisle ? `Cột ${c}: Đang là Hành lang (Click để phục hồi)` : `Click để biến Cột ${c} thành Hành lang`;
+            colHeader.onclick = () => toggleVerticalAisle(c);
+            colHeader.innerHTML = `
+                <div style="font-size: 10px; font-weight: bold;">${c}</div>
+                <div style="font-size: 9px;">${isAisle ? '🚶' : '↓'}</div>
+            `;
+            colHeaderGrid.appendChild(colHeader);
+        }
+        colHeaderWrapper.appendChild(colHeaderGrid);
+        container.appendChild(colHeaderWrapper);
+
+        // 2. Main Matrix Body (Rows)
+        for (let r = 1; r <= totalRows; r++) {
+            const rowWrapper = document.createElement('div');
+            rowWrapper.className = 'd-flex align-items-center mb-1.5';
+
+            const isAisleRow = horizontalAisles.has(r);
+
+            // Row Controls (Left side)
+            const rowControl = document.createElement('div');
+            rowControl.style.width = '75px';
+            rowControl.className = 'd-flex align-items-center justify-content-between me-2';
+
+            // Find row label from first seat
+            let label = '-';
+            for (let c = 1; c <= totalCols; c++) {
+                if (seatMap.has(`${r}_${c}`)) {
+                    label = seatMap.get(`${r}_${c}`).rowLabel;
+                    break;
+                }
+            }
+
+            rowControl.innerHTML = `
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-dark text-xs p-1 px-1.5 fw-bold rounded-2 dropdown-toggle" type="button" data-bs-toggle="dropdown" title="Gán nhanh cả hàng">
+                        ${label}
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-dark text-xs shadow">
+                        <li><h6 class="dropdown-header">Gán nhanh Hàng ${label}:</h6></li>
+                        <li><a class="dropdown-item" href="javascript:void(0)" onclick="batchAssignRow(${r}, 'STANDARD')">🪑 Đổi cả hàng thành Thường</a></li>
+                        <li><a class="dropdown-item" href="javascript:void(0)" onclick="batchAssignRow(${r}, 'VIP')">👑 Đổi cả hàng thành VIP</a></li>
+                        <li><a class="dropdown-item text-purple" href="javascript:void(0)" onclick="batchAssignRow(${r}, 'COUPLE')">💕 Ghép Đôi hàng (Chống tràn)</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="javascript:void(0)" onclick="clearRow(${r})">🗑️ Xóa toàn bộ ghế hàng</a></li>
+                    </ul>
+                </div>
+                <button type="button" class="btn btn-sm ${isAisleRow ? 'btn-danger' : 'btn-outline-secondary'} py-0 px-1 text-xs rounded" 
+                        title="${isAisleRow ? 'Hành lang ngang (Click để mở)' : 'Biến hàng thành hành lang ngang'}" 
+                        onclick="toggleHorizontalAisle(${r})">
+                    ${isAisleRow ? '🚶' : '–'}
+                </button>
+            `;
+            rowWrapper.appendChild(rowControl);
+
+            // Row Seat Grid Cells
+            const rowGrid = document.createElement('div');
+            rowGrid.style.display = 'grid';
+            rowGrid.style.gridTemplateColumns = `repeat(${totalCols}, 38px)`;
+            rowGrid.style.gap = '6px';
+
+            for (let c = 1; c <= totalCols; c++) {
+                const key = `${r}_${c}`;
+
+                // Check if this cell is consumed by a couple seat from the left
+                if (c > 1 && seatMap.has(`${r}_${c - 1}`)) {
+                    const prev = seatMap.get(`${r}_${c - 1}`);
+                    if (prev.colSpan > 1) {
+                        continue; // Do not render second cell of couple seat in grid (span handles it)
+                    }
+                }
+
+                if (seatMap.has(key)) {
+                    const s = seatMap.get(key);
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'seat-cell';
+                    btn.style.gridColumn = `${c} / span ${s.colSpan}`;
+                    btn.style.height = '38px';
+                    btn.style.borderRadius = '6px';
+                    btn.style.border = '1.5px solid';
+                    btn.style.fontWeight = 'bold';
+                    btn.style.fontSize = s.colSpan > 1 ? '10px' : '9px';
+                    btn.style.cursor = 'pointer';
+                    btn.style.display = 'flex';
+                    btn.style.flexDirection = 'column';
+                    btn.style.alignItems = 'center';
+                    btn.style.justifyContent = 'center';
+                    btn.style.transition = 'all 0.15s ease';
+
+                    applySeatCellStyle(btn, s);
+
+                    btn.onclick = () => onCellClick(r, c);
+                    rowGrid.appendChild(btn);
+
+                    // Skip the column that this couple seat spans
+                    if (s.colSpan > 1) {
+                        c += (s.colSpan - 1);
+                    }
+                } else {
+                    // Empty Cell (Aisle or deleted)
+                    const isVertAisle = verticalAisles.has(c);
+                    const isAisle = isVertAisle || isAisleRow;
+                    const emptyCell = document.createElement('div');
+                    emptyCell.className = `empty-cell ${isAisle ? 'aisle-corridor' : ''}`;
+                    emptyCell.style.width = '38px';
+                    emptyCell.style.height = '38px';
+                    emptyCell.style.borderRadius = '5px';
+                    emptyCell.style.border = isAisle ? '1.5px dashed rgba(239, 68, 68, 0.45)' : '1px dashed rgba(255, 255, 255, 0.12)';
+                    emptyCell.style.background = isAisle ? 'rgba(239, 68, 68, 0.08)' : 'transparent';
+                    emptyCell.style.cursor = isAisle ? 'not-allowed' : 'pointer';
+                    emptyCell.style.display = 'flex';
+                    emptyCell.style.alignItems = 'center';
+                    emptyCell.style.justifyContent = 'center';
+
+                    if (isAisle) {
+                        const aisleDesc = (isVertAisle && isAisleRow) ? 'Giao điểm hành lang' : (isVertAisle ? `Hành lang dọc Cột ${c}` : `Hành lang ngang Hàng ${r}`);
+                        emptyCell.title = `🚶 ${aisleDesc} (Bấm 🚶 ở đầu cột/hàng để mở lại đặt ghế)`;
+                        emptyCell.innerHTML = '<span style="font-size: 11px; opacity: 0.45; color: #f87171;">🚶</span>';
+                    } else {
+                        emptyCell.title = `Ô (${r}, ${c}): Trống (Click để đặt ghế)`;
+                    }
+
+                    emptyCell.onclick = () => onCellClick(r, c);
+                    rowGrid.appendChild(emptyCell);
+                }
+            }
+
+            rowWrapper.appendChild(rowGrid);
+            container.appendChild(rowWrapper);
+        }
+
+        updateStats();
+    }
+
+    function applySeatCellStyle(btn, s) {
+        // Kiểm tra nếu ghế này đang vi phạm nằm trên hành lang
+        if (verticalAisles.has(s.gridCol) || horizontalAisles.has(s.gridRow)) {
+            btn.style.background = '#7f1d1d';
+            btn.style.boxShadow = '0 0 12px rgba(239, 68, 68, 0.9)';
+            btn.style.borderColor = '#ef4444';
+            btn.style.color = '#fff';
+            btn.innerHTML = `<span>⚠️ ${s.rowLabel}${s.seatNumber}</span><span style="font-size: 7px; color: #fca5a5;">LẤN LỐI ĐI</span>`;
+            btn.title = `⚠️ Ghế ${s.rowLabel}${s.seatNumber} ĐANG LẤN HÀNH LANG! (Nhấp vào ghế để xóa ngay)`;
+            return;
+        }
+
+        if (!s.isActive) {
+            btn.style.background = '#450a0a';
+            btn.style.borderColor = '#ef4444';
+            btn.style.color = '#fca5a5';
+            btn.innerHTML = `<span>${s.rowLabel}${s.seatNumber}</span><span style="font-size: 7px; color: #ef4444;">KHÓA</span>`;
+            btn.title = `Ghế ${s.rowLabel}${s.seatNumber} - Đang BẢO TRÌ (Nhấp để đổi trạng thái)`;
+            return;
+        }
+
+        const cfg = seatTypesConfig[s.typeCode] || seatTypesConfig.STANDARD;
+        btn.style.background = cfg.color;
+        btn.style.borderColor = cfg.border;
+        btn.style.color = cfg.textColor;
+
+        if (s.colSpan > 1) {
+            btn.innerHTML = `<span>💕 ${s.rowLabel}${s.seatNumber}</span>`;
+            btn.title = `Ghế Đôi ${s.rowLabel}${s.seatNumber} (Nhấp lại lần nữa để XÓA GHẾ)`;
+        } else {
+            btn.innerHTML = `<span>${s.rowLabel}${s.seatNumber}</span>`;
+            btn.title = `Ghế ${s.rowLabel}${s.seatNumber} (${cfg.name} - Nhấp lại lần nữa để XÓA GHẾ)`;
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // INTERACTIVE PAINTER & CELL CLICKS
+    // ══════════════════════════════════════════════════════════════════════════
+    function onCellClick(r, c) {
+        const key = `${r}_${c}`;
+        const isVertAisle = verticalAisles.has(c);
+        const isHorizAisle = horizontalAisles.has(r);
+        const isAisleCell = isVertAisle || isHorizAisle;
+
+        // ── 1. VỊ TRÍ HÀNH LANG: KHÔNG CHO PHÉP ĐẶT GHẾ VÀO HÀNG / CỘT ĐANG LÀ HÀNH LANG ──
+        if (isAisleCell) {
+            // Nếu ô này đang có ghế vi phạm và người dùng nhấp vào -> XÓA GHẾ NGAY LẬP TỨC
+            if (seatMap.has(key)) {
+                seatMap.delete(key);
+                recalculateLabels();
+                renderGrid();
+                return;
+            }
+            if (c > 1 && seatMap.has(`${r}_${c - 1}`)) {
+                const prev = seatMap.get(`${r}_${c - 1}`);
+                if (prev.colSpan > 1) {
+                    seatMap.delete(`${r}_${c - 1}`);
+                    recalculateLabels();
+                    renderGrid();
+                    return;
+                }
+            }
+
+            // Chặn đặt ghế vào hành lang
+            const reason = isVertAisle && isHorizAisle
+                ? `giao điểm giữa Cột hành lang ${c} và Hàng hành lang ${r}`
+                : (isVertAisle ? `Cột ${c} (đang được quy định là Hành lang dọc)` : `Hàng ${r} (đang được quy định là Hành lang ngang)`);
+
+            alert(`⚠️ VỊ TRÍ HÀNH LANG KHÓA:\n\nÔ (${r}, ${c}) thuộc ${reason}!\n\nBạn không thể đặt ghế vào lối đi hành lang.\n👉 Vui lòng bấm vào biểu tượng 🚶 ở tiêu đề Cột ${c} hoặc Hàng ${r} nếu muốn mở khóa thành cột/hàng ghế.`);
+            return;
+        }
+
+        // ── 2. TÍNH NĂNG "ẤN LẦN NỮA ĐỂ XÓA GHẾ" (TOGGLE OFF / DELETE ON RE-CLICK) ──
+        if (seatMap.has(key)) {
+            const existing = seatMap.get(key);
+
+            // Nếu loại ghế của ô trùng khớp với Cọ vẽ đang chọn -> XÓA GHẾ!
+            if (existing.typeCode === currentPaintMode) {
+                seatMap.delete(key);
+                recalculateLabels();
+                renderGrid();
+                return;
+            }
+
+            // Nếu cọ vẽ đang ở chế độ EMPTY -> XÓA GHẾ!
+            if (currentPaintMode === 'EMPTY') {
+                seatMap.delete(key);
+                recalculateLabels();
+                renderGrid();
+                return;
+            }
+
+            // Nếu cọ vẽ đang ở chế độ MAINT -> Đổi cờ bảo trì
+            if (currentPaintMode === 'MAINT') {
+                existing.isActive = !existing.isActive;
+                recalculateLabels();
+                renderGrid();
+                return;
+            }
+        }
+
+        // Kiểm tra nếu nhấp vào nửa sau của một ghế đôi từ c - 1
+        if (c > 1 && seatMap.has(`${r}_${c - 1}`)) {
+            const prev = seatMap.get(`${r}_${c - 1}`);
+            if (prev.colSpan > 1) {
+                if (currentPaintMode === 'COUPLE' || currentPaintMode === 'EMPTY') {
+                    // Nhấp lại vào ghế đôi -> XÓA GHẾ ĐÔI!
+                    seatMap.delete(`${r}_${c - 1}`);
+                    recalculateLabels();
+                    renderGrid();
+                    return;
+                }
+            }
+        }
+
+        // ── 3. ĐẶT GHẾ MỚI HOẶC ĐỔI LOẠI GHẾ ──
+        if (currentPaintMode === 'EMPTY') {
+            seatMap.delete(key);
+        } else if (currentPaintMode === 'MAINT') {
+            if (seatMap.has(key)) {
+                seatMap.get(key).isActive = !seatMap.get(key).isActive;
+            } else {
+                seatMap.set(key, {
+                    gridRow: r,
+                    gridCol: c,
+                    colSpan: 1,
+                    seatTypeId: seatTypesConfig.STANDARD.id,
+                    typeCode: 'STANDARD',
+                    rowLabel: 'A',
+                    seatNumber: 1,
+                    isActive: false
+                });
+            }
+        } else if (currentPaintMode === 'COUPLE') {
+            // Kiểm tra quy tắc chống lấn hành lang dọc
+            if (c >= totalCols) {
+                alert('⚠️ Không thể đặt Ghế Đôi ở cột ngoài cùng của phòng chiếu!');
+                return;
+            }
+            if (verticalAisles.has(c + 1)) {
+                alert(`⚠️ CHẶN CỨNG LẤN HÀNH LANG:\n\nCột ${c + 1} là Hành lang dọc!\nTuyệt đối không được đặt ghế đôi tại Cột ${c} vì ghế đôi (2 ô) sẽ lấn sang cột hành lang lối đi.`);
+                return;
+            }
+
+            // Xóa ghế ở c + 1 nếu có để ghế đôi chiếm 2 ô
+            seatMap.delete(`${r}_${c + 1}`);
+
+            seatMap.set(key, {
+                gridRow: r,
+                gridCol: c,
+                colSpan: 2,
+                seatTypeId: seatTypesConfig.COUPLE.id,
+                typeCode: 'COUPLE',
+                rowLabel: 'A',
+                seatNumber: 1,
+                isActive: true
+            });
+        } else {
+            // STANDARD hoặc VIP
+            const cfg = seatTypesConfig[currentPaintMode];
+            seatMap.set(key, {
+                gridRow: r,
+                gridCol: c,
+                colSpan: 1,
+                seatTypeId: cfg.id,
+                typeCode: currentPaintMode,
+                rowLabel: 'A',
+                seatNumber: 1,
+                isActive: true
+            });
+        }
+
+        recalculateLabels();
+        renderGrid();
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // ROW BATCH ASSIGNMENT & SWEETBOX SMART PAIRING
+    // ══════════════════════════════════════════════════════════════════════════
+    function batchAssignRow(r, targetType) {
+        if (targetType === 'COUPLE') {
+            // Clear entire row first
+            for (let c = 1; c <= totalCols; c++) {
+                seatMap.delete(`${r}_${c}`);
+            }
+
+            // Group into column blocks separated by vertical aisles
+            const blocks = getColumnBlocks();
+            blocks.forEach(block => {
+                // Pair consecutive 2 columns strictly within the block
+                for (let c = block.start; c + 1 <= block.end; c += 2) {
+                    seatMap.set(`${r}_${c}`, {
+                        gridRow: r,
+                        gridCol: c,
+                        colSpan: 2,
+                        seatTypeId: seatTypesConfig.COUPLE.id,
+                        typeCode: 'COUPLE',
+                        rowLabel: 'A',
+                        seatNumber: 1,
+                        isActive: true
+                    });
+                }
+            });
+        } else {
+            // STANDARD or VIP
+            const cfg = seatTypesConfig[targetType];
+            // Clear any spanning couple seats
+            for (let c = 1; c <= totalCols; c++) {
+                seatMap.delete(`${r}_${c}`);
+            }
+
+            const blocks = getColumnBlocks();
+            blocks.forEach(block => {
+                for (let c = block.start; c <= block.end; c++) {
+                    seatMap.set(`${r}_${c}`, {
+                        gridRow: r,
+                        gridCol: c,
+                        colSpan: 1,
+                        seatTypeId: cfg.id,
+                        typeCode: targetType,
+                        rowLabel: 'A',
+                        seatNumber: 1,
+                        isActive: true
+                    });
+                }
+            });
+        }
+
+        horizontalAisles.delete(r);
+        recalculateLabels();
+        renderGrid();
+    }
+
+    function clearRow(r) {
+        for (let c = 1; c <= totalCols; c++) {
+            seatMap.delete(`${r}_${c}`);
+        }
+        horizontalAisles.add(r);
+        recalculateLabels();
+        renderGrid();
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // TOGGLE AISLES
+    // ══════════════════════════════════════════════════════════════════════════
+    function toggleVerticalAisle(c) {
+        if (verticalAisles.has(c)) {
+            verticalAisles.delete(c);
+        } else {
+            // Set as aisle: remove any seats in this column
+            verticalAisles.add(c);
+            for (let r = 1; r <= totalRows; r++) {
+                seatMap.delete(`${r}_${c}`);
+                // Also if a couple seat from c - 1 was spanning into c, fix it
+                if (c > 1 && seatMap.has(`${r}_${c - 1}`)) {
+                    const prev = seatMap.get(`${r}_${c - 1}`);
+                    if (prev.colSpan > 1) {
+                        prev.colSpan = 1;
+                        prev.typeCode = 'STANDARD';
+                        prev.seatTypeId = seatTypesConfig.STANDARD.id;
+                    }
+                }
+            }
+        }
+        recalculateLabels();
+        renderGrid();
+    }
+
+    function toggleHorizontalAisle(r) {
+        if (horizontalAisles.has(r)) {
+            horizontalAisles.delete(r);
+        } else {
+            horizontalAisles.add(r);
+            for (let c = 1; c <= totalCols; c++) {
+                seatMap.delete(`${r}_${c}`);
+            }
+        }
+        recalculateLabels();
+        renderGrid();
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // TEMPLATES
+    // ══════════════════════════════════════════════════════════════════════════
+    function applyCustomGridSize() {
+        const rows = parseInt(document.getElementById('inputTotalRows').value);
+        const cols = parseInt(document.getElementById('inputTotalCols').value);
+        if (rows < 3 || rows > 30 || cols < 4 || cols > 40) {
+            alert('Kích thước hợp lệ: Hàng từ 3 đến 30, Cột từ 4 đến 40.');
+            return;
+        }
+
+        totalRows = rows;
+        totalCols = cols;
+
+        // Remove out-of-bound seats
+        for (const [key, s] of Array.from(seatMap.entries())) {
+            if (s.gridRow > totalRows || s.gridCol + s.colSpan - 1 > totalCols) {
+                seatMap.delete(key);
+            }
+        }
+
+        detectAisles();
+        recalculateLabels();
+        renderGrid();
+    }
+
+    function applyTemplate(type) {
+        if (!confirm(`Bạn có chắc muốn áp dụng mẫu "${type.toUpperCase()}"? Sơ đồ hiện tại sẽ được thay thế.`)) return;
+
+        seatMap.clear();
+        verticalAisles.clear();
+        horizontalAisles.clear();
+
+        if (type === 'standard') {
+            totalRows = 10;
+            totalCols = 16;
+            verticalAisles.add(4);
+            verticalAisles.add(13);
+            horizontalAisles.add(4);
+
+            document.getElementById('inputTotalRows').value = 10;
+            document.getElementById('inputTotalCols').value = 16;
+
+            for (let r = 1; r <= 10; r++) {
+                if (r === 4) continue;
+                if (r === 10) {
+                    batchAssignRow(r, 'COUPLE');
+                } else if (r <= 3) {
+                    batchAssignRow(r, 'STANDARD');
+                } else {
+                    batchAssignRow(r, 'VIP');
+                }
+            }
+        } else if (type === 'cozy') {
+            totalRows = 8;
+            totalCols = 12;
+            verticalAisles.add(6);
+
+            document.getElementById('inputTotalRows').value = 8;
+            document.getElementById('inputTotalCols').value = 12;
+
+            for (let r = 1; r <= 8; r++) {
+                if (r === 8) {
+                    batchAssignRow(r, 'COUPLE');
+                } else if (r <= 3) {
+                    batchAssignRow(r, 'STANDARD');
+                } else {
+                    batchAssignRow(r, 'VIP');
+                }
+            }
+        } else if (type === 'imax') {
+            totalRows = 12;
+            totalCols = 20;
+            verticalAisles.add(5);
+            verticalAisles.add(16);
+            horizontalAisles.add(5);
+
+            document.getElementById('inputTotalRows').value = 12;
+            document.getElementById('inputTotalCols').value = 20;
+
+            for (let r = 1; r <= 12; r++) {
+                if (r === 5) continue;
+                if (r >= 11) {
+                    batchAssignRow(r, 'COUPLE');
+                } else if (r <= 4) {
+                    batchAssignRow(r, 'STANDARD');
+                } else {
+                    batchAssignRow(r, 'VIP');
+                }
+            }
+        } else if (type === 'clear') {
+            // Keep dimensions, clear seats
+        }
+
+        recalculateLabels();
+        renderGrid();
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // STATS UPDATE
+    // ══════════════════════════════════════════════════════════════════════════
+    function updateStats() {
+        let total = 0, std = 0, vip = 0, couple = 0, maint = 0;
+        seatMap.forEach(s => {
+            total++;
+            if (!s.isActive) maint++;
+            else if (s.typeCode === 'VIP') vip++;
+            else if (s.typeCode === 'COUPLE') couple++;
+            else std++;
+        });
+
+        document.getElementById('statTotal').textContent = total;
+        document.getElementById('statStd').textContent = std;
+        document.getElementById('statVip').textContent = vip;
+        document.getElementById('statCouple').textContent = couple;
+        document.getElementById('statMaint').textContent = maint;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SAVE TO SERVER (POST /ScreeningRoom/SaveSeatLayout)
+    // ══════════════════════════════════════════════════════════════════════════
+    async function saveLayoutToServer() {
+        const btn = document.getElementById('btnSaveLayout');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1.5"></span>Đang lưu sơ đồ...';
+
+        const seatList = Array.from(seatMap.values()).map(s => ({
+            gridRow: s.gridRow,
+            gridCol: s.gridCol,
+            colSpan: s.colSpan || 1,
+            seatTypeId: s.seatTypeId,
+            rowLabel: s.rowLabel,
+            seatNumber: s.seatNumber,
+            isActive: s.isActive !== false
+        }));
+
+        try {
+            const resp = await fetch('/ScreeningRoom/SaveSeatLayout', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                },
+                body: JSON.stringify({
+                    roomId: roomId,
+                    totalRows: totalRows,
+                    totalCols: totalCols,
+                    aisleRows: Array.from(horizontalAisles).join(','),
+                    aisleCols: Array.from(verticalAisles).join(','),
+                    seats: seatList
+                })
+            });
+
+            const data = await resp.json();
+            if (data.success) {
+                alert(data.message);
+                window.location.href = `/ScreeningRoom/Details/${roomId}`;
+            } else {
+                alert('❌ Lỗi: ' + data.message);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-floppy-fill me-1.5"></i>💾 LƯU SƠ ĐỒ PHÒNG CHIẾU';
+            }
+        } catch (err) {
+            console.error('Lỗi lưu sơ đồ:', err);
+            alert('Lỗi kết nối máy chủ!');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-floppy-fill me-1.5"></i>💾 LƯU SƠ ĐỒ PHÒNG CHIẾU';
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // INITIALIZATION
+    // ══════════════════════════════════════════════════════════════════════════
+    document.querySelectorAll('.palette-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('active', 'shadow-sm'));
+            btn.classList.add('active', 'shadow-sm');
+            currentPaintMode = btn.dataset.type;
+        });
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+        initSeatMapFromData(initialSeats);
+    });
+</script>
+}

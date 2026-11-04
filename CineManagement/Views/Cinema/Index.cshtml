@@ -1,0 +1,80 @@
+@model IEnumerable<Cinema>
+@{
+    ViewData["Title"] = "Quản lý Cụm Rạp Chi Nhánh";
+    Layout = "_AdminLayout";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-1 text-dark">
+            <i class="bi bi-buildings-fill text-success me-2"></i>Danh Sách Cụm Rạp Chi Nhánh
+        </h4>
+        <p class="text-muted small mb-0">Hệ thống quản trị tập trung mạng lưới cụm rạp của Hãng rạp CineStar</p>
+    </div>
+    <a asp-action="Create" class="btn btn-success fw-bold rounded-3 shadow-sm px-3 py-2">
+        <i class="bi bi-plus-circle me-1.5"></i>Thêm Cụm Rạp Mới
+    </a>
+</div>
+
+<div class="row g-4">
+    @foreach (var c in Model)
+    {
+        <div class="col-12 col-md-6 col-xl-4">
+            <div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden bg-white">
+                <div class="position-relative" style="height: 160px; background: #1e293b;">
+                    @if (!string.IsNullOrEmpty(c.ImageUrl))
+                    {
+                        <img src="@c.ImageUrl" class="w-100 h-100 object-fit-cover" alt="@c.Name" />
+                    }
+                    else
+                    {
+                        <div class="w-100 h-100 d-flex align-items-center justify-content-center text-white-50">
+                            <i class="bi bi-building fs-1"></i>
+                        </div>
+                    }
+                    <span class="position-absolute top-0 start-0 m-3 badge bg-dark bg-opacity-75 font-monospace px-2.5 py-1.5 fs-7 border border-light border-opacity-25">
+                        @c.Code
+                    </span>
+                    <span class="position-absolute top-0 end-0 m-3 badge @(c.IsActive ? "bg-success" : "bg-secondary") px-2.5 py-1.5">
+                        @(c.IsActive ? "Đang hoạt động" : "Tạm ngưng")
+                    </span>
+                </div>
+
+                <div class="card-body p-4 d-flex flex-column">
+                    <h5 class="fw-bold text-dark mb-1">@c.Name</h5>
+                    <div class="text-muted small mb-3">
+                        <i class="bi bi-geo-alt text-danger me-1"></i>@c.Address, <strong>@c.City</strong>
+                    </div>
+
+                    <div class="bg-light rounded-3 p-3 mb-3 small flex-grow-1">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">Hotline:</span>
+                            <span class="fw-semibold text-dark">@(c.Hotline ?? "–")</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">Email:</span>
+                            <span class="fw-semibold text-dark">@(c.Email ?? "–")</span>
+                        </div>
+                        <div class="d-flex justify-content-between pt-2 border-top">
+                            <span class="text-muted">Số phòng chiếu:</span>
+                            <span class="badge bg-primary-subtle text-primary fw-bold">
+                                @(c.ScreeningRooms?.Count ?? 0) phòng chiếu
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <a asp-action="Edit" asp-route-id="@c.CinemaId" class="btn btn-outline-primary btn-sm flex-grow-1 fw-semibold rounded-2 py-1.5">
+                            <i class="bi bi-pencil-square me-1"></i>Chỉnh sửa
+                        </a>
+                        <form asp-action="ToggleStatus" asp-route-id="@c.CinemaId" method="post" class="d-inline">
+                            <button type="submit" class="btn @(c.IsActive ? "btn-outline-warning" : "btn-outline-success") btn-sm rounded-2 py-1.5" title="Bật/Tắt hoạt động">
+                                <i class="bi @(c.IsActive ? "bi-pause-circle" : "bi-play-circle")"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

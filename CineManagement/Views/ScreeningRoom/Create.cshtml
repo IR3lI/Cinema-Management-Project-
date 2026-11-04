@@ -1,0 +1,88 @@
+@model ScreeningRoomFormViewModel
+@{
+    bool isEdit = Model.RoomId != 0;
+    ViewData["Title"] = isEdit ? "Chỉnh sửa phòng chiếu" : "Thêm phòng chiếu mới";
+    Layout = "_AdminLayout";
+}
+
+<div class="table-container" style="max-width:700px">
+    <div class="d-flex align-items-center mb-4">
+        <a asp-action="Index" class="btn btn-outline-secondary btn-sm me-3"><i class="bi bi-arrow-left"></i></a>
+        <h5 class="fw-bold mb-0">
+            <i class="bi @(isEdit ? "bi-pencil-square text-primary" : "bi-plus-circle text-warning") me-2"></i>
+            @ViewData["Title"]
+        </h5>
+    </div>
+
+    <form asp-action="@(isEdit ? "Edit" : "Create")" asp-route-id="@Model.RoomId" method="post">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        @if (isEdit) { <input type="hidden" asp-for="RoomId" /> }
+
+        <div class="mb-3">
+            <label asp-for="RoomName" class="form-label fw-semibold"></label>
+            <input asp-for="RoomName" class="form-control" placeholder="VD: Phòng 1 - Standard" />
+            <span asp-validation-for="RoomName" class="text-danger small"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="RoomType" class="form-label fw-semibold">Loại phòng</label>
+            <select asp-for="RoomType" class="form-select">
+                <option value="0">Tiêu chuẩn (Standard)</option>
+                <option value="1">VIP</option>
+                <option value="2">IMAX</option>
+            </select>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label asp-for="Rows" class="form-label fw-semibold"></label>
+                <input asp-for="Rows" type="number" min="1" max="26" class="form-control" id="rowsInput" />
+                <span asp-validation-for="Rows" class="text-danger small"></span>
+                <div class="form-text">Tối đa 26 hàng (A–Z)</div>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="SeatsPerRow" class="form-label fw-semibold"></label>
+                <input asp-for="SeatsPerRow" type="number" min="1" max="30" class="form-control" id="seatsInput" />
+                <span asp-validation-for="SeatsPerRow" class="text-danger small"></span>
+            </div>
+        </div>
+
+        <div class="alert alert-info mt-3 py-2">
+            <i class="bi bi-info-circle me-2"></i>
+            Sức chứa: <strong id="capacityDisplay">@(Model.Rows * Model.SeatsPerRow)</strong> ghế
+            @if (isEdit)
+            {
+                <br /><small class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Thay đổi số hàng/ghế sẽ tạo lại toàn bộ sơ đồ ghế.</small>
+            }
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Description" class="form-label fw-semibold"></label>
+            <textarea asp-for="Description" class="form-control" rows="2"></textarea>
+        </div>
+
+        <div class="mb-4 form-check">
+            <input asp-for="IsActive" class="form-check-input" />
+            <label asp-for="IsActive" class="form-check-label fw-semibold">Đang hoạt động</label>
+        </div>
+
+        <button type="submit" class="btn btn-warning fw-bold me-2">
+            <i class="bi bi-save me-1"></i>@(isEdit ? "Lưu thay đổi" : "Tạo phòng chiếu")
+        </button>
+        <a asp-action="Index" class="btn btn-outline-secondary">Hủy</a>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        const rowsInput = document.getElementById('rowsInput');
+        const seatsInput = document.getElementById('seatsInput');
+        const capacityDisplay = document.getElementById('capacityDisplay');
+        function updateCapacity() {
+            capacityDisplay.textContent = (parseInt(rowsInput.value) || 0) * (parseInt(seatsInput.value) || 0);
+        }
+        rowsInput.addEventListener('input', updateCapacity);
+        seatsInput.addEventListener('input', updateCapacity);
+    </script>
+}

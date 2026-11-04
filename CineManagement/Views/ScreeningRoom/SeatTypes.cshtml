@@ -1,0 +1,212 @@
+@model IEnumerable<SeatType>
+@{
+    ViewData["Title"] = "Quản lý Phân loại ghế (Seat Types)";
+    Layout = "_AdminLayout";
+}
+
+<div class="container-fluid px-0">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h4 class="fw-black mb-1 text-dark">
+                <i class="bi bi-grid-3x3-gap-fill text-primary me-2"></i>Quản lý Phân loại ghế (Seat Types)
+            </h4>
+            <p class="text-muted small mb-0">Cấu hình tên gọi, phụ thu giá vé và màu sắc hiển thị trên sơ đồ ghế 2D</p>
+        </div>
+        <a asp-action="Index" class="btn btn-outline-secondary btn-sm px-3 fw-semibold">
+            <i class="bi bi-arrow-left me-1"></i>Về danh sách phòng chiếu
+        </a>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show rounded-4 shadow-sm border-0 mb-4" role="alert">
+            <i class="bi bi-check-circle-fill me-2 fs-5 align-middle"></i>
+            <span>@TempData["Success"]</span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show rounded-4 shadow-sm border-0 mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2 fs-5 align-middle"></i>
+            <span>@TempData["Error"]</span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <!-- Table Card -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden bg-white">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-muted small text-uppercase">
+                    <tr>
+                        <th class="ps-4">Mã loại</th>
+                        <th>Tên hiển thị</th>
+                        <th>Phụ thu (VNĐ)</th>
+                        <th>Độ rộng lưới (ColSpan)</th>
+                        <th>Màu sắc giao diện</th>
+                        <th>Mô tả</th>
+                        <th>Số lượng ghế</th>
+                        <th class="text-end pe-4">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model)
+                    {
+                        <tr>
+                            <td class="ps-4 font-monospace fw-bold text-dark">
+                                <span class="badge bg-dark px-2.5 py-1.5 rounded-pill">@item.Code</span>
+                            </td>
+                            <td>
+                                <strong class="text-dark">@item.Name</strong>
+                            </td>
+                            <td>
+                                @if (item.Surcharge > 0)
+                                {
+                                    <span class="badge bg-warning-subtle text-warning border border-warning px-2.5 py-1.5 fw-bold">
+                                        +@item.Surcharge.ToString("N0") VNĐ
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary-subtle text-secondary border px-2.5 py-1.5 fw-semibold">
+                                        0 VNĐ (Chuẩn)
+                                    </span>
+                                }
+                            </td>
+                            <td>
+                                @if (item.ColSpan > 1)
+                                {
+                                    <span class="badge bg-info-subtle text-info border border-info px-2.5 py-1.5 fw-bold">
+                                        <i class="bi bi-arrows-expand me-1"></i>@item.ColSpan Cột (Ghế đôi)
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">1 Cột (Đơn)</span>
+                                }
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="d-inline-block rounded-2 border shadow-sm" style="width: 24px; height: 24px; background-color: @item.ColorCode;"></span>
+                                    <code class="small text-uppercase">@item.ColorCode</code>
+                                </div>
+                            </td>
+                            <td class="small text-muted" style="max-width: 260px;">
+                                @(string.IsNullOrWhiteSpace(item.Description) ? "–" : item.Description)
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border px-2.5 py-1 fw-bold">
+                                    @item.Seats.Count ghế
+                                </span>
+                            </td>
+                            <td class="text-end pe-4">
+                                <button type="button"
+                                        class="btn btn-outline-primary btn-sm px-3 fw-semibold rounded-pill"
+                                        onclick="openEditModal(@item.SeatTypeId, '@item.Code', '@item.Name', @item.Surcharge, '@item.ColorCode', '@(item.Description ?? "")')">
+                                    <i class="bi bi-pencil me-1"></i>Chỉnh sửa
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Edit SeatType -->
+<div class="modal fade" id="editSeatTypeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <form asp-action="UpdateSeatType" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="editSeatTypeId" name="seatTypeId" />
+
+                <div class="modal-header bg-light p-4 border-bottom">
+                    <div>
+                        <h5 class="modal-title fw-black mb-0 text-dark">
+                            <i class="bi bi-sliders text-primary me-2"></i>Chỉnh sửa Cấu hình Loại ghế
+                        </h5>
+                        <small class="text-muted">Mã hệ thống: <strong id="modalCodeBadge" class="badge bg-dark font-monospace"></strong></small>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-dark">Tên loại ghế hiển thị <span class="text-danger">*</span></label>
+                        <input type="text" id="editName" name="name" class="form-control" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-dark">Phụ thu trên giá vé cơ bản (VNĐ) <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <input type="number" id="editSurcharge" name="surcharge" class="form-control" min="0" step="1000" required />
+                            <span class="input-group-text">VNĐ</span>
+                        </div>
+                        <small class="text-muted">Nhập 0 nếu là loại ghế tiêu chuẩn không thu thêm tiền.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-dark">Mã màu đại diện trên Sơ đồ ghế <span class="text-danger">*</span></label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="color" id="editColorPicker" class="form-control form-control-color" style="width: 50px; height: 38px;" />
+                            <input type="text" id="editColorCode" name="colorCode" class="form-control font-monospace" placeholder="#RRGGBB" required />
+                        </div>
+                        <small class="text-muted">Màu này sẽ hiển thị trực quan cho khách chọn ghế và quản trị viên.</small>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small text-dark">Mô tả đặc điểm loại ghế</label>
+                        <textarea id="editDescription" name="description" class="form-control" rows="2" placeholder="Ví dụ: Ghế đôi Sweetbox dành cho cặp đôi..."></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light p-3 border-top d-flex justify-content-between">
+                    <button type="button" class="btn btn-outline-secondary px-3" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary px-4 fw-bold shadow-sm">
+                        <i class="bi bi-check-circle-fill me-1"></i>Lưu thay đổi
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    let editModal = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        editModal = new bootstrap.Modal(document.getElementById('editSeatTypeModal'));
+
+        const colorPicker = document.getElementById('editColorPicker');
+        const colorInput = document.getElementById('editColorCode');
+
+        colorPicker.addEventListener('input', (e) => {
+            colorInput.value = e.target.value;
+        });
+
+        colorInput.addEventListener('input', (e) => {
+            if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) {
+                colorPicker.value = e.target.value;
+            }
+        });
+    });
+
+    function openEditModal(id, code, name, surcharge, colorCode, description) {
+        document.getElementById('editSeatTypeId').value = id;
+        document.getElementById('modalCodeBadge').innerText = code;
+        document.getElementById('editName').value = name;
+        document.getElementById('editSurcharge').value = surcharge;
+        document.getElementById('editColorCode').value = colorCode;
+        document.getElementById('editColorPicker').value = colorCode;
+        document.getElementById('editDescription').value = description;
+
+        editModal.show();
+    }
+</script>
+}

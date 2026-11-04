@@ -1,0 +1,87 @@
+@model IEnumerable<ScreeningRoom>
+@{
+    ViewData["Title"] = "Quản lý Phòng chiếu";
+    Layout = "_AdminLayout";
+}
+
+<div class="table-container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0"><i class="bi bi-building me-2"></i>Danh sách Phòng chiếu</h5>
+        <a asp-action="Create" class="btn btn-warning">
+            <i class="bi bi-plus-lg me-1"></i>Thêm phòng mới
+        </a>
+    </div>
+
+    <div class="row g-4">
+        @foreach (var room in Model)
+        {
+            <div class="col-md-4">
+                <div class="card h-100 @(!room.IsActive ? "opacity-50" : "") border-0 shadow-sm">
+                    <div class="card-header d-flex align-items-center justify-content-between py-2
+                        @(room.RoomType == RoomType.VIP ? "bg-warning" : room.RoomType == RoomType.IMAX ? "bg-dark text-white" : "bg-primary text-white")">
+                        <span class="fw-bold">@room.RoomName</span>
+                        <span class="badge bg-light text-dark">
+                            @switch (room.RoomType)
+                            {
+                                case RoomType.VIP:  <text>VIP</text>  break;
+                                case RoomType.IMAX: <text>IMAX</text> break;
+                                default:            <text>Standard</text> break;
+                            }
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center mb-3">
+                            <div class="col-4">
+                                <div class="fw-bold fs-4 text-primary">@(room.Capacity > 0 ? room.Capacity : (room.TotalRows * room.TotalCols))</div>
+                                <small class="text-muted">Tổng ghế</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="fw-bold fs-4 text-success">@room.TotalRows</div>
+                                <small class="text-muted">Hàng</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="fw-bold fs-4 text-info">@room.TotalCols</div>
+                                <small class="text-muted">Cột ma trận</small>
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(room.Description))
+                        {
+                            <p class="text-muted small mb-2">@room.Description</p>
+                        }
+                        <div class="d-flex gap-1 justify-content-between">
+                            @if (room.IsActive)
+                            { <span class="badge bg-success">Đang hoạt động</span> }
+                            else
+                            { <span class="badge bg-secondary">Đã tắt</span> }
+                            <small class="text-muted">@room.Showtimes.Count suất chiếu</small>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent border-0 d-flex gap-2">
+                        <a asp-action="Details" asp-route-id="@room.RoomId" class="btn btn-sm btn-outline-info flex-fill" title="Xem sơ đồ 2D">
+                            <i class="bi bi-grid-3x3 me-1"></i>Sơ đồ ghế
+                        </a>
+                        <a asp-action="LayoutBuilder" asp-route-id="@room.RoomId" class="btn btn-sm btn-outline-success" title="Studio Thiết Kế Sơ Đồ Lưới">
+                            <i class="bi bi-grid-3x3-gap-fill me-1"></i>Studio
+                        </a>
+                        <a asp-action="Edit" asp-route-id="@room.RoomId" class="btn btn-sm btn-outline-primary" title="Sửa thông số">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <form asp-action="Delete" asp-route-id="@room.RoomId" method="post" class="d-inline"
+                              onsubmit="return confirm('Vô hiệu hóa phòng này?')">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Vô hiệu hóa">
+                                <i class="bi bi-slash-circle"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        }
+        @if (!Model.Any())
+        {
+            <div class="col-12 text-center py-5 text-muted">
+                <i class="bi bi-building fs-1"></i>
+                <p class="mt-2">Chưa có phòng chiếu nào.</p>
+            </div>
+        }
+    </div>
+</div>
