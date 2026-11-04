@@ -64,6 +64,7 @@ nginx/bin/
 *.xml
 *.txt
 *.md
+!README.md
 !CineManagement/wwwroot/lib/**
 !CineManagement/.agents/**
 /diagrams/
