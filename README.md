@@ -79,35 +79,11 @@ Toàn bộ cây thư mục dự án được tổ chức khoa học, phân đị
 
 ```text
 Cinema-Managment/
-├── .github/
-│   └── workflows/
-│       └── deploy.yml                        # CI/CD pipeline tự động kiểm thử và deploy
-├── .gitignore                                # Cấu hình loại trừ file biên dịch và dữ liệu nhạy cảm
-├── CineManagement.slnx                       # Solution .NET quản lý toàn bộ dự án
-├── Dockerfile.buoi8                          # Dockerfile đóng gói CineManagement
-├── docker-compose.buoi8.yml                  # File soạn thảo đa container (App, MySQL, Nginx)
+├── .gitignore                                # Cấu hình loại trừ file biên dịch và dữ liệu môi trường
+├── CineManagement.slnx                       # Solution .NET mở dự án trên Visual Studio / IDE
+├── README.md                                 # Tài liệu kiến trúc & cấu trúc dự án
 │
-├── START-Cinema.bat                          # Script chạy nhanh backend ASP.NET Core local
-├── START-MySQL.bat                           # Script khởi động MySQL/MariaDB port mặc định 3306
-├── START-MySQL-3307.bat                      # Script khởi động MySQL container port 3307
-├── START-DEMO-BUOI8.bat                      # Script kích hoạt demo toàn diện (App + Nginx + DB)
-├── OPEN-SQL-CONSOLE.bat                      # Script mở nhanh terminal truy vấn MySQL
-├── download_posters.py                       # Script tự động tải ảnh poster phim chất lượng cao
-├── get_posters.py                            # Script hỗ trợ đồng bộ danh mục poster
-├── update_db_seed.py                         # Script nạp dữ liệu phim và đồ ăn mẫu vào database
-│
-├── nginx/                                    # Cấu hình Cổng Reverse Proxy & Load Balancer
-│   ├── nginx.conf                            # File cấu hình Nginx chính (Upstream, Caching, Headers)
-│   ├── nginx-docker.conf                     # Cấu hình Nginx tối ưu cho môi trường Docker
-│   ├── nginx-wsl.conf                        # Cấu hình Nginx chạy trên môi trường Linux WSL
-│   ├── html/                                 # Giao diện Web kiểm thử tính năng Upstream Load Balancing
-│   │   ├── index.html
-│   │   ├── style.css
-│   │   └── app.js
-│   ├── scripts/                              # Script reload, start, stop Nginx trên Windows
-│   └── ssl/                                  # Cấu hình SSL/TLS (HTTPS) tự ký cho môi trường dev
-│
-└── CineManagement/                           # Mã nguồn chính ASP.NET Core 9 (Modular Monolith)
+└── CineManagement/                           # Thư mục mã nguồn chính ASP.NET Core 9 (Modular Monolith)
     ├── CineManagement.csproj                 # Cấu hình gói thư viện (NuGet: Pomelo MySQL, SignalR, QRCoder)
     ├── Program.cs                            # Entry point: Đăng ký DI, cấu hình Middleware Pipeline, SignalR Hub
     ├── appsettings.json                      # Cấu hình chuỗi kết nối Database, SMTP Server, JWT

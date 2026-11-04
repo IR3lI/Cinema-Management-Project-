@@ -82,3 +82,12 @@ test_drawio_algo.py
 test_published_app.py
 diagrams_sprint*.png
 test_font.png
+
+## Root level scripts and infrastructure (Kept locally)
+Dockerfile.buoi8
+docker-compose.buoi8.yml
+*.bat
+download_posters.py
+get_posters.py
+update_db_seed.py
+/nginx/
