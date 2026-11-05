@@ -71,7 +71,7 @@ nginx/bin/
 /screenshots/
 /screenshots_user/
 /extracted_media/
-/docs/
+!docs/**
 *_Viewer.html
 diagram_drawio.html
 generate_*.py

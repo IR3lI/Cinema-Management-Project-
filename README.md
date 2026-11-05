@@ -6,70 +6,94 @@
 
 ## 🏛️ Kiến Trúc Hệ Thống (System Architecture)
 
-Hệ thống được thiết kế theo mô hình **Modular Monolith** kết hợp **Reverse Proxy Gateway**, chia làm 4 tầng độc lập:
+Hệ thống được thiết kế theo mô hình **phân tầng dọc (Vertical Layered Architecture)** chuẩn doanh nghiệp, sắp xếp các khối thành hàng dọc gọn gàng, luồng dữ liệu truyền thẳng từ trên xuống dưới:
 
 ```mermaid
-flowchart TD
-    %% Styling
-    classDef client fill:#E3F2FD,stroke:#1565C0,stroke-width:2px,color:#0D47A1;
-    classDef proxy fill:#FFF3E0,stroke:#E65100,stroke-width:2px,color:#BF360C;
-    classDef backend fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px,color:#1B5E20;
-    classDef subblock fill:#FFFFFF,stroke:#4CAF50,stroke-width:1px,color:#1B5E20;
-    classDef worker fill:#F3E5F5,stroke:#7B1FA2,stroke-width:1px,color:#4A148C;
-    classDef data fill:#ECEFF1,stroke:#455A64,stroke-width:2px,color:#263238;
-    classDef ext fill:#FBE9E7,stroke:#D84315,stroke-width:2px,color:#BF360C;
-
-    %% 1. CLIENT LAYER
-    subgraph Layer1 ["1. TẦNG NGƯỜI DÙNG (CLIENT LAYER)"]
-        WebCustomer["📱 Web Khách Hàng<br/>(Xem lịch chiếu, chọn ghế realtime, bắp nước)"]:::client
-        StaffPOS["🖥️ Quầy Vé & Soát Vé POS<br/>(In vé nhiệt, camera quét QR soát vé)"]:::client
-    end
-
-    %% 2. GATEWAY
-    subgraph Layer2 ["2. CỔNG ĐIỀU HƯỚNG (GATEWAY)"]
-        Nginx["🛡️ NGINX Reverse Proxy & SSL<br/>(Bảo mật HTTPS, chống quá tải, Load Balancing)"]:::proxy
-    end
-
-    WebCustomer -->|HTTPS / WSS| Nginx
-    StaffPOS -->|HTTPS| Nginx
-
-    %% 3. BACKEND CORE
-    subgraph Layer3 ["3. XỬ LÝ TRUNG TÂM (ASP.NET CORE 9 HOST PROCESS)"]
+flowchart TB
+    %% ==========================================
+    %% 1. TẦNG NGƯỜI DÙNG & THIẾT BỊ (XẾP HÀNG DỌC)
+    %% ==========================================
+    subgraph T1 ["TẦNG 1: NGƯỜI DÙNG & GIAO DIỆN (CLIENT TIER)"]
         direction TB
-
-        subgraph CoreModules ["Các Phân Hệ Nghiệp Vụ (Business Modules)"]
-            direction LR
-            M1["🎬 Quản Lý Phim & Lịch Chiếu<br/>(Movies, Genres, Showtimes)"]:::subblock
-            M2["🪑 Đặt Vé & Giữ Ghế Realtime<br/>(ShowtimeSeats, SignalR Hub)"]:::subblock
-            M3["🍿 Bắp Nước & Đơn Hàng<br/>(FoodItems, Concessions, Vouchers)"]:::subblock
-            M4["📊 Báo Cáo & Phân Tích<br/>(Doanh thu, Tỷ lệ lấp đầy)"]:::subblock
-        end
-
-        subgraph Workers ["Tác Vụ Chạy Ngầm (Background Workers)"]
-            direction LR
-            W1["⏱️ SeatHoldTimeoutWorker<br/>(Tự nhả ghế quá hạn 10 phút)"]:::worker
-            W2["✉️ OutboxMessageWorker<br/>(Gửi Email vé QR đảm bảo tin cậy)"]:::worker
-        end
-
-        CoreModules -.-> Workers
+        Client["👤 Khách Hàng (Web / Mobile Browser)"]
+        POS["🖥️ Quầy Vé Box Office (Quét QR & In Vé K80)"]
+        Admin["⚙️ Quản Trị Viên (Admin Portal Toàn Chuỗi)"]
     end
 
-    Nginx -->|Chuyển tiếp yêu cầu| CoreModules
-
-    %% 4. DATA & SERVICES
-    subgraph Layer4 ["4. DỮ LIỆU & DỊCH VỤ NGOÀI"]
-        direction LR
-        Database[("💾 Cơ Sở Dữ Liệu<br/>(MySQL cinema_db)")]:::data
-        VietQR["💳 Cổng Thanh Toán<br/>(VietQR Napas247 / VNPay)"]:::ext
-        EmailSvc["📧 Dịch Vụ Email<br/>(SMTP Server)"]:::ext
-        CloudStorage["☁️ Lưu Trữ Media<br/>(Posters & FnB Images)"]:::ext
+    %% ==========================================
+    %% 2. TẦNG BẢO MẬT & ĐIỀU PHỐI (XẾP HÀNG DỌC)
+    %% ==========================================
+    subgraph T2 ["TẦNG 2: CỔNG BẢO MẬT & ĐỊNH TUYẾN (GATEWAY TIER)"]
+        direction TB
+        CF["🛡️ Cloudflare Edge (WAF, Chống DDoS & SSL 1.3)"]
+        Nginx["🌐 NGINX Reverse Proxy (Định Tuyến & WebSockets)"]
+        CF ==>|"TLS Origin CA"| Nginx
     end
 
-    CoreModules -->|EF Core 9| Database
-    CoreModules -->|Tạo mã thanh toán QR| VietQR
-    Workers -->|Gửi vé cho khách| EmailSvc
-    CoreModules -->|Lưu & tải ảnh| CloudStorage
+    %% ==========================================
+    %% 3. TẦNG MÁY CHỦ XỬ LÝ (XẾP HÀNG DỌC)
+    %% ==========================================
+    subgraph T3 ["TẦNG 3: MÁY CHỦ TRUNG TÂM (ASP.NET CORE 10 MODULAR MONOLITH)"]
+        direction TB
+        API["🌐 Web MVC & REST APIs (Tiếp Nhận & Điều Hướng)"]
+        SignalR["⚡ SignalR Real-Time Hub (Giữ Ghế Tức Thì &lt; 50ms)"]
+        Modules["📦 5 Modules Nghiệp Vụ (Cinemas • Catalog • Ticketing • Ordering • Payments)"]
+        Workers["⏳ Background Workers (Nhả Ghế Quá Hạn & Gửi Vé Outbox)"]
+        
+        API --> SignalR
+        SignalR --> Modules
+        Modules --> Workers
+    end
+
+    %% ==========================================
+    %% 4. TẦNG DỮ LIỆU & DỊCH VỤ NGOÀI (XẾP HÀNG DỌC)
+    %% ==========================================
+    subgraph T4 ["TẦNG 4: CƠ SỞ DỮ LIỆU & DỊCH VỤ ĐÁM MÂY (DATA & SERVICES)"]
+        direction TB
+        DB[("🗄️ MariaDB 10.11 Server (12 Bảng 3NF, Giao Dịch ACID)")]
+        R2[("☁️ Cloudflare R2 / S3 (Lưu Poster & QR Vé)")]
+        Ext["🔌 Dịch Vụ Ngoài (VietQR Banking & Google SMTP)"]
+    end
+
+    %% ==========================================
+    %% LUỒNG TƯƠNG TÁC THẲNG ĐỨNG TỪ TRÊN XUỐNG DƯỚI (HÀNG DỌC)
+    %% ==========================================
+    T1 ==>|"HTTPS & WebSockets"| CF
+    Nginx ==>|"Chuyển Tiếp HTTP:5000 & WS"| API
+    Workers ==>|"Giao Dịch ACID / EF Core"| DB
+    Workers -.->|"Upload Poster & QR (S3 API)"| R2
+    Workers -.->|"REST VietQR & SMTP TLS 587"| Ext
+
+    %% ==========================================
+    %% MÀU SẮC PHÂN TẦNG RÕ RÀNG
+    %% ==========================================
+    style T1 fill:#f0f9ff,stroke:#0284c7,stroke-width:2px;
+    style T2 fill:#faf5ff,stroke:#9333ea,stroke-width:2px;
+    style T3 fill:#f0fdf4,stroke:#16a34a,stroke-width:2px;
+    style T4 fill:#fffbeb,stroke:#d97706,stroke-width:2px;
+
+    style SignalR fill:#fef08a,stroke:#ca8a04,stroke-width:2px,color:#713f12,font-weight:bold;
+    style DB fill:#f1f5f9,stroke:#475569,stroke-width:2px,color:#0f172a;
+    style R2 fill:#f1f5f9,stroke:#475569,stroke-width:2px,color:#0f172a;
+    style Ext fill:#f1f5f9,stroke:#475569,stroke-width:2px,color:#0f172a;
 ```
+
+### 📋 Vai Trò Từng Thành Phần Trong Hệ Thống
+
+| Tầng | Thành phần | Trách nhiệm cốt lõi |
+| :--- | :--- | :--- |
+| **1. Clients** | **👤 Khách Hàng** | Đặt vé, xem phim, tương tác sơ đồ ghế 2D, nhận đồng bộ qua SignalR WebSocket ($< 50\text{ ms}$). |
+| | **🖥️ Quầy Vé POS** | Nhân viên quét QR vé qua camera (`html5-qrcode`), cờ `IsPrinted Guard`, Upsell bắp nước và in vé nhiệt K80. |
+| | **⚙️ Quản Trị Viên** | Quản lý cụm rạp, phòng chiếu, layout ghế (Visual Seat Studio & Aisle Guard), phim, suất chiếu. |
+| **2. Gateway** | **🛡️ Cloudflare** | WAF chống DDoS, ẩn IP gốc máy chủ, SSL 1.3 và CDN cache hình ảnh poster. |
+| | **🌐 NGINX** | Reverse proxy, cân bằng tải, nén và xử lý cấu hình WebSocket Upgrade cho kết nối song công. |
+| **3. Backend** | **🌐 Web API / MVC** | Điểm tiếp nhận request, xác thực danh tính Identity, phân quyền RBAC và kiểm tra tính hợp lệ dữ liệu. |
+| | **⚡ SignalR Hub** | Quản lý Room theo Suất chiếu (`showtime_{id}`), phát sóng sự kiện thay đổi trạng thái ghế tức thì. |
+| | **📦 5 Modules** | `Cinemas`, `Catalog`, `Ticketing`, `Ordering`, `Payments` tuân thủ nguyên lý ranh giới miền Bounded Context. |
+| | **⏳ Workers** | `SeatHoldTimeoutWorker` (nhả ghế quá hạn 5 phút) & `OutboxMessageWorker` (gửi mail vé qua SMTP). |
+| **4. Storage** | **🗄️ MariaDB** | Cơ sở dữ liệu giao dịch 12 bảng chuẩn hóa 3NF, mức cô lập `Serializable` bảo đảm ACID. |
+| | **☁️ Cloudflare R2** | Lưu trữ đám mây S3 không phí tải ra (Zero Egress Fees) cho poster phim và mã QR vé. |
+| | **🔌 Dịch Vụ Ngoài**| Cổng thanh toán tự động VietQR Napas 247 và cổng thư tín Google SMTP. |
 
 ---
 
@@ -82,6 +106,15 @@ Cinema-Managment/
 ├── .gitignore                                # Cấu hình loại trừ file biên dịch và dữ liệu môi trường
 ├── CineManagement.slnx                       # Solution .NET mở dự án trên Visual Studio / IDE
 ├── README.md                                 # Tài liệu kiến trúc & cấu trúc dự án
+├── docs/                                     # Tài liệu đặc tả kỹ thuật phần mềm (SRS, Backlog, ERD, BFD)
+│   ├── 01_PRODUCT_BACKLOG.md
+│   ├── 02_YEU_CAU_HE_THONG.md
+│   ├── 03_SO_DO_PHAN_RA_CHUC_NANG.md
+│   ├── 04_THIET_KE_HE_THONG.md
+│   ├── 05_THIET_KE_CO_SO_DU_LIEU.md
+│   ├── 06_QUY_TRINH_NGHIEP_VU_WORKFLOW.md
+│   ├── README.md
+│   └── erd_cinemanagement.drawio
 │
 └── CineManagement/                           # Thư mục mã nguồn chính ASP.NET Core 9 (Modular Monolith)
     ├── CineManagement.csproj                 # Cấu hình gói thư viện (NuGet: Pomelo MySQL, SignalR, QRCoder)
