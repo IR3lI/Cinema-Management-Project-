@@ -139,7 +139,83 @@ flowchart LR
     DOM -.-> SharedKernel
 ```
 
-### Nguyên tắc giao tiếp giữa các Module:
+### 3.1. Phân rã 5 Bounded Contexts (Lý giải tại sao chia domain như vậy)
+
+Trong rạp chiếu phim, cùng một khái niệm thực tế nhưng ở các ngữ cảnh khác nhau sẽ mang mục đích, hành vi và dữ liệu hoàn toàn khác nhau (Ubiquitous Language). CineManagement được phân chia thành **5 Bounded Contexts** độc lập:
+
+| Bounded Context | Ngữ cảnh nghiệp vụ (Responsibility) | Aggregate Root & Entities | Khái niệm đặc thù (Ubiquitous Language) |
+| :--- | :--- | :--- | :--- |
+| **1. Cinema & Catalog** | Quản lý hạ tầng rạp vật lý, ma trận phòng chiếu, thuật toán an toàn hành lang (Aisle Guard) và danh mục phim chiếu. | `Cinema`, `ScreeningRoom`, `Seat`, `SeatType`, `Movie`, `Genre`, `Showtime` | **`Seat`**: Là tọa độ vật lý cố định trong phòng chiếu (Hàng A, Cột 5, Ghế VIP), không lưu vết ai đang ngồi. |
+| **2. Booking & Ticketing** | Quản lý quy trình giữ ghế, tính toán tổng tiền vé, phát hành vé điện tử E-Ticket. | **Aggregate Root: `Booking`**, `ShowtimeSeat`, `Ticket` | **`ShowtimeSeat`**: Là trạng thái động của ghế theo suất chiếu (Trống, Đang giữ tạm 5 phút, Đã bán). **`Ticket`**: Mã vé QR và trạng thái in vé nhiệt. |
+| **3. Concessions (F&B)** | Quản lý bán bắp nước, combo ăn uống kèm vé hoặc bán trực tiếp tại quầy POS. | `FoodItem`, `BookingConcession` | **`BookingConcession`**: Đóng băng đơn giá bắp nước tại thời điểm mua (`PriceAtPurchase`) để hóa đơn không đổi khi menu tăng giá. |
+| **4. Payment & Billing** | Tích hợp cổng thanh toán trực tuyến (VNPay/MoMo/Tiền mặt), kiểm tra Idempotency (`request_key`, `request_hash`) và voucher. | `Payment`, `Voucher` | **`IdempotencyKey`**: Khóa chống thanh toán 2 lần khi mạng lag bấm liên tiếp. |
+| **5. Operations & Counter** | Quầy vé POS "Một Cửa", quét mã QR vé (`ScanBookingQr`), in vé nhiệt K80 và báo cáo doanh thu. | `Staff`, `ReportService` | **`ScanBookingQr`**: Xác thực vé một chạm, chống gian lận tái sử dụng vé (`IsPrinted Guard`). |
+
+### 3.2. Sơ đồ Mô Hình Hóa Giao Tiếp Giữa Các Module (Inter-Module Communication)
+
+Giao tiếp giữa các module được chia thành **2 kênh độc lập**:
+- **Kênh ĐỌC (Query)**: Thông qua **Contract Interface & DTO (Read Models)**, tuyệt đối không truy vấn chéo DbContext nội bộ của module khác.
+- **Kênh GHI (Command & Events)**: Thông qua **In-Memory Event Bus** (`CineManagement.Common.Events.IEventBus`) và **Transactional Outbox Pattern** (`OutboxMessageWorker`).
+
+```mermaid
+flowchart TB
+    subgraph SharedKernel["LỚP DÙNG CHUNG (Common / Shared Kernel)"]
+        direction LR
+        IEvent["Interface: IEvent\n(Định danh Domain Event)"]
+        IEventBus["Interface: IEventBus\n(Phát tán sự kiện nội tiến trình)"]
+        IEventHandler["Interface: IEventHandler<T>\n(Lắng nghe và xử lý sự kiện)"]
+    end
+
+    subgraph Module_Cinema["1. Module Cinema & Catalog"]
+        CinemaService["ScreeningRoom / SeatLayout"]
+        CinemaContract["[Contract Interface]\nISeatLayoutService\nSeatLayoutContractDto"]
+    end
+
+    subgraph Module_Booking["2. Module Booking & Ticketing (Core Context)"]
+        BookingService["BookingService\n(Khóa ghế 5p, Tính giá vé)"]
+        BookingAggregate[("Aggregate Root:\nBooking + Tickets")]
+    end
+
+    subgraph Module_FnB["3. Module Concessions (F&B)"]
+        FoodService["FoodService / Tồn kho bắp nước"]
+        FnBHandler["ConcessionOrderHandler\n(Lắng nghe Booking)"]
+    end
+
+    subgraph Module_Payment["4. Module Payment & Billing"]
+        PaymentService["PaymentService\n(VNPay, MoMo, Idempotency)"]
+    end
+
+    subgraph Infrastructure["Hạ tầng Event & Background Workers"]
+        InMemoryBus["InMemoryEventBus\n(CineManagement.Common.Events)"]
+        OutboxTable[("Bảng OutboxMessages\n(Lưu Domain Event nguyên tử ACID)")]
+        OutboxWorker["OutboxMessageWorker\n(Quét 5s gửi Email vé QR E-Ticket)"]
+        TimeoutWorker["SeatHoldTimeoutWorker\n(Quét giải phóng ghế hết hạn)"]
+    end
+
+    %% Giao tiếp ĐỌC (Query)
+    BookingService -->|"1. ĐỌC: Kiểm tra an toàn hành lang (Aisle Guard)"| CinemaContract
+    BookingService -->|"2. ĐỌC: Kiểm tra trạng thái thanh toán"| PaymentService
+
+    %% Giao tiếp GHI (Command & Events)
+    BookingService -->|"3. GHI: Lưu Booking + Tickets (ACID Transaction)"| BookingAggregate
+    BookingService -->|"4. GHI: Đẩy Event vào Outbox cùng Transaction"| OutboxTable
+    BookingService -->|"5. GHI: Publish sự kiện In-Memory"| InMemoryBus
+
+    %% In-Memory Event Bus phân phối
+    InMemoryBus -->|"Kích hoạt Handler"| FnBHandler
+    FnBHandler -->|"Trừ tồn kho bắp nước đã bán kèm"| FoodService
+
+    %% Xử lý nền
+    OutboxTable -.->|"Quét sự kiện chưa gửi"| OutboxWorker
+    OutboxWorker -->|"Gửi Email vé điện tử kèm mã QR"| EmailClient["Email Service (SMTP)"]
+    TimeoutWorker -->|"Tự động giải phóng ghế sau 5 phút"| BookingService
+
+    %% Liên kết với Shared Kernel
+    IEventBus -.->|"Implementation"| InMemoryBus
+    IEvent -.-> InMemoryBus
+```
+
+### 3.3. Nguyên tắc giao tiếp giữa các Module:
 1. **Cô lập dữ liệu (Database Isolation)**: Mỗi module quản lý tập thực thể (Entities) của riêng mình. Không có module nào được phép trực tiếp sửa đổi `DbSet` nội bộ của module khác mà phải thông qua Interface hợp đồng công khai.
 2. **Kiểm soát tương tranh kép (Dual-Concurrency Engine)**:
    * **Pessimistic Locking**: Mọi giao dịch giữ ghế, thanh toán và in vé quầy POS đều mở Database Transaction ở mức `IsolationLevel.Serializable`.

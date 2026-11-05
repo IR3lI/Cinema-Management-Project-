@@ -15,7 +15,7 @@ Thư mục `docs/` chứa toàn bộ bộ tài liệu đặc tả kỹ thuật, 
 | **04** | **Thiết Kế Kiến Trúc Hệ Thống** | Mô hình kiến trúc phân tầng 5 lớp (5-Tier Enterprise Architecture), sơ đồ kiến trúc tổng thể Mermaid, 4 Biểu đồ tuần tự (Sequence Diagrams) cho các luồng cốt lõi: SignalR giữ ghế, Outbox thanh toán, POS quét QR in vé nhiệt K80 và Visual Seat Studio. | [04_THIET_KE_HE_THONG.md](./04_THIET_KE_HE_THONG.md) |
 | **05** | **Thiết Kế Cơ Sở Dữ Liệu & ERD 3NF** | Sơ đồ quan hệ thực thể (ERD Mermaid) 12 bảng chuẩn hóa 3NF, từ điển dữ liệu chi tiết (Data Dictionary), chiến lược khóa phiên bản tương tranh lạc quan `Version` và chỉ mục phức hợp Composite Indexing. | [05_THIET_KE_CO_SO_DU_LIEU.md](./05_THIET_KE_CO_SO_DU_LIEU.md) |
 | **06** | **Quy Trình Nghiệp Vụ Hệ Thống (Workflows)** | Sơ đồ workflow tổng thể và các quy trình chi tiết: Đặt vé online, Quầy vé POS soát vé in nhiệt K80, Tự động hóa tiến trình nền. | [06_QUY_TRINH_NGHIEP_VU_WORKFLOW.md](./06_QUY_TRINH_NGHIEP_VU_WORKFLOW.md) |
-| **06_Module** | **Kiến Trúc Modular Monolith & Giao Tiếp Module** | Phân rã 5 Bounded Contexts, cơ chế ĐỌC (Contract DTO) và GHI (In-Memory Event Bus + Outbox Pattern), Sequence Diagram và 14 Unit Test Cases. | [06_module/README.md](./06_module/README.md) |
+| **06_Module** | **Kiến Trúc Modular Monolith & Giao Tiếp Module** | Phân rã 5 Bounded Contexts, cơ chế ĐỌC (Contract DTO) và GHI (In-Memory Event Bus + Outbox Pattern), Sequence Diagram và 14 Unit Test Cases. | [06_MO_HINH_HOA_MODULE.md](./06_MO_HINH_HOA_MODULE.md) / [06_module/](./06_module/) |
 
 ---
 
