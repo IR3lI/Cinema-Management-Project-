@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using CineManagement.Models;
 
@@ -47,6 +47,8 @@ public static class SeedData
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
 
             "ALTER TABLE `screeningrooms` ADD COLUMN IF NOT EXISTS `CinemaId` int NULL;",
+            "ALTER TABLE `screeningrooms` ADD COLUMN IF NOT EXISTS `AisleRows` varchar(255) NULL;",
+            "ALTER TABLE `screeningrooms` ADD COLUMN IF NOT EXISTS `AisleCols` varchar(255) NULL;",
             "ALTER TABLE `movies` ADD COLUMN IF NOT EXISTS `Country` varchar(100) NULL DEFAULT 'Mỹ';",
             "ALTER TABLE `movies` ADD COLUMN IF NOT EXISTS `Format` varchar(50) NULL DEFAULT '2D';",
             "ALTER TABLE `movies` ADD COLUMN IF NOT EXISTS `SubtitleType` varchar(100) NULL DEFAULT 'Phụ đề Việt';",

@@ -66,6 +66,10 @@ nginx/bin/
 *.md
 !README.md
 !.spec/**
+!CineManagement/.specify/**
+!CineManagement/specs/**
+!.specify/**
+!specs/**
 !CineManagement/wwwroot/lib/**
 !CineManagement/.agents/**
 /diagrams/
@@ -82,6 +86,7 @@ package_demo_zip.py
 test_drawio_algo.py
 test_published_app.py
 diagrams_sprint*.png
+diagram_*.png
 test_font.png
 
 ## Root level scripts and infrastructure (Kept locally)

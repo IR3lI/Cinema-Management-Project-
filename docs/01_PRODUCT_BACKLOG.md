@@ -24,6 +24,23 @@ Hệ thống tập trung giải quyết triệt để 3 bài toán kỹ thuật 
 3. **Tối ưu quy trình Quầy vé Box Office POS "Một Cửa" & Chống Gian Lận**:
    * Khắc phục tình trạng ùn tắc tại sảnh rạp trước giờ chiếu bằng cổng POS một chạm chuyên biệt (`/Counter`): Camera quét mã QR trực tiếp (`html5-qrcode`), cờ kiểm soát chống in vé lậu (`IsPrinted Guard`), gợi ý bán kèm bắp nước (Upsell F&B) và xuất lệnh in vé nhiệt K80 80mm rời từng ghế.
 
+
+### 1.3. Phân tích so sánh với các giải pháp hiện hữu & Tính đột phá của đề tài
+
+Điểm khác biệt cốt lõi của **CineManagement** không nằm ở việc phát minh ra một mô hình kinh doanh mới chưa từng tồn tại, mà nằm ở **phân khúc mục tiêu, mức độ tùy biến vận hành, và việc giải quyết triệt để khoảng trống giữa "hệ thống Enterprise đắt đỏ" với "các đồ án sinh viên sơ sài"**.
+
+| Tiêu chí so sánh | Hệ thống Enterprise (Vista của CGV / Lotte) | Phần mềm POS đóng gói (SaaS giá rẻ) | Đồ án sinh viên thông thường | **Hệ thống CineManagement** |
+| :--- | :--- | :--- | :--- | :--- |
+| **Chi phí bản quyền & Vận hành** | Hàng trăm nghìn USD/năm; đòi hỏi cụm Microservices & Kiosk đắt đỏ | Thu phí thuê bao hàng tháng; tính năng đóng cứng | Tiệm cận 0đ (Localhost) | **Tiệm cận 0đ**: Chạy gọn trên 1 VPS Docker Compose + Cloudflare R2 miễn phí |
+| **Kiến trúc phần mềm** | Phức tạp, khó triển khai cho rạp vừa và nhỏ | Monolith phân mảnh hoặc đóng gói đóng kín mã nguồn | 3-Layer Monolith truyền thống, phụ thuộc SQLite | **Modular Monolith (.NET 10)**: Chia module sạch sẽ, chuẩn 3NF MariaDB |
+| **Sơ đồ phòng chiếu 2D** | Cấu hình chuyên biệt bởi kỹ sư hãng | Lưới hình chữ nhật cố định, khó tạo hành lang | Hardcode số hàng/cột, không có hành lang | **Visual Seat Layout Builder**: Tùy biến đa hành lang, thuật toán chống ghế đôi lấn hành lang |
+| **Xử lý tương tranh & Giữ ghế** | Hàng đợi phức tạp (Redis/Distributed Lock) | Khóa Pessimistic (dễ nghẽn) hoặc không khóa | Không xử lý Race Condition (dễ bán trùng ghế) | **Dual-Concurrency**: `IsolationLevel.Serializable` + `[ConcurrencyCheck] Version Token` |
+| **Đồng bộ ghế thời gian thực** | WebSockets/Kiosk riêng biệt | Đồng bộ chậm, khách và quầy dễ chọn trùng | Reload trang (F5), polling thủ công | **SignalR WebSockets Hub**: Đồng bộ sub-50ms tức thời giữa khách Web và nhân viên Quầy |
+| **Độ tin cậy gửi vé điện tử** | Message Queue phân tán (RabbitMQ/Kafka) | Gửi đồng bộ (Sync API), dễ lỗi khi rớt mạng | `Task.Run` hoặc gọi SMTP trực tiếp gây treo UI/mất vé | **Transactional Outbox Pattern**: Đảm bảo 100% gửi vé QR không mất mát |
+| **Quy trình Quầy vé** | Tách riêng quầy bán vé và quầy F&B | Tách rời bill online và bán lẻ tại quầy | Chỉ có CRUD vé cơ bản | **Quầy POS Một Cửa**: Quét QR 10s + Upsell F&B + In vé nhiệt K80 chống in trùng (`IsPrinted`) |
+
+> *"Dù trên thị trường đã có các hệ thống quản lý rạp quy mô lớn (như Vista của CGV/Lotte), các giải pháp này có chi phí bản quyền và hạ tầng quá cao đối với các hãng rạp nội địa quy mô vừa và nhỏ. Ngược lại, các phần mềm nhỏ lẻ lại thiếu khả năng tùy biến mặt bằng phòng chiếu đa hành lang và dễ gặp lỗi tranh chấp dữ liệu giữa kênh Online và tại Quầy. Do đó, đề tài tập trung xây dựng một giải pháp **tinh gọn về hạ tầng (Modular Monolith trên Docker & Cloudflare R2)** nhưng **mạnh mẽ về nghiệp vụ lõi (SignalR Realtime, Transactional Outbox và Quầy POS Một Cửa tích hợp Upsell F&B)**, đáp ứng đúng bài toán chuyển đổi số thực tế với chi phí tối ưu nhất."*
+
 ---
 
 ## 2. TẦM NHÌN SẢN PHẨM (PRODUCT VISION)
