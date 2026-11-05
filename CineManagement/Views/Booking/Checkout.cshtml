@@ -1,0 +1,455 @@
+@model CineManagement.ViewModels.CheckoutViewModel
+@{
+    ViewData["Title"] = "Xác nhận & Thanh toán VietQR";
+    Layout = "_Layout";
+    var b = Model.Booking;
+    var defaultEmail = User.Identity?.Name?.Contains("@") == true ? User.Identity.Name : (b.User?.Email ?? b.ContactEmail ?? "");
+    var initialFinalAmount = Model.FinalAmount > 0 ? Model.FinalAmount : (Model.SubTotal - Model.DiscountAmount);
+
+    long holdUntilMs = Model.HoldExpiresAt.HasValue
+        ? (long)(Model.HoldExpiresAt.Value.ToUniversalTime() - DateTime.UnixEpoch).TotalMilliseconds
+        : (long)(DateTime.UtcNow.AddMinutes(10) - DateTime.UnixEpoch).TotalMilliseconds;
+}
+
+<div data-holduntil="@holdUntilMs" id="checkoutHoldUntilData" style="display:none"></div>
+
+@section Styles {
+<style>
+    .pay-option { 
+        border: 1.5px solid #E7E2D9; 
+        background: #FFFFFF;
+        transition: all .2s ease; 
+        cursor: pointer; 
+    }
+    .pay-option:hover { 
+        border-color: #059669; 
+        background: #FAF8F5;
+    }
+    .pay-option:has(input:checked) { 
+        border-color: #059669; 
+        background: #F0FDF4; 
+        box-shadow: 0 0 0 1px #059669;
+    }
+    .pay-option input[type=radio] { 
+        accent-color: #059669; 
+        width: 18px; 
+        height: 18px; 
+    }
+    .voucher-input:focus { 
+        outline: 2px solid #059669; 
+        outline-offset: 0; 
+        border-color: #059669;
+    }
+    @@keyframes pulse-subtle {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.92; transform: scale(0.995); }
+    }
+    .qr-container {
+        animation: pulse-subtle 4s infinite ease-in-out;
+    }
+</style>
+}
+
+<!-- Step bar -->
+<div class="flex items-center gap-2 mb-6 text-sm">
+    <span class="flex items-center gap-1.5 text-stone-500">
+        <span class="w-6 h-6 rounded-full bg-stone-200 text-stone-600 flex items-center justify-center text-xs font-bold">1</span>
+        Chọn ghế
+    </span>
+    <div class="flex-1 h-px bg-stone-300"></div>
+    <span class="flex items-center gap-1.5 text-stone-500">
+        <span class="w-6 h-6 rounded-full bg-stone-200 text-stone-600 flex items-center justify-center text-xs font-bold">2</span>
+        Đồ ăn & nước
+    </span>
+    <div class="flex-1 h-px bg-stone-300"></div>
+    <span class="flex items-center gap-1.5 text-emerald-700 font-semibold">
+        <span class="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold">3</span>
+        Thanh toán VietQR
+    </span>
+</div>
+
+<!-- Countdown Alert Banner -->
+<div class="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between flex-wrap gap-3">
+    <div class="flex items-center gap-3">
+        <span class="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-700 flex items-center justify-center text-lg">
+            <i class="ph ph-hourglass-medium text-xl"></i>
+        </span>
+        <div>
+            <div class="text-xs text-amber-900 font-bold uppercase tracking-wider">Thời gian giữ chỗ còn lại</div>
+            <div class="text-xs text-stone-600">Vui lòng hoàn tất thanh toán trước khi hết hạn để không bị hủy vé.</div>
+        </div>
+    </div>
+    <div class="flex items-center gap-2 bg-white px-4 py-1.5 rounded-xl border border-amber-300 shadow-xs">
+        <i class="ph ph-clock text-amber-600 font-bold"></i>
+        <span id="checkoutTimer" class="text-amber-800 font-black text-lg tabular-nums">09:59</span>
+    </div>
+</div>
+
+<div class="flex flex-col lg:flex-row gap-6 items-start">
+
+    <!-- LEFT: Details + email + voucher + payment -->
+    <div class="flex-1 w-full min-w-0 space-y-5">
+
+        <!-- Movie info & Detailed Seats Breakdown -->
+        <div class="rounded-2xl border border-[#E7E2D9] bg-white p-5 shadow-sm">
+            <div class="flex items-start gap-4 pb-4 border-b border-stone-100">
+                @if (!string.IsNullOrEmpty(b.Showtime?.Movie?.PosterUrl))
+                {
+                    <img src="@b.Showtime.Movie.PosterUrl" alt="Poster"
+                         class="w-20 h-28 object-cover rounded-xl flex-shrink-0 shadow-sm border border-stone-200" />
+                }
+                <div class="flex-1 min-w-0">
+                    <div class="text-xl font-bold text-stone-900">@b.Showtime?.Movie?.Title</div>
+                    <div class="text-stone-600 text-sm mt-1.5 space-y-1">
+                        <div class="flex items-center gap-1.5">
+                            <i class="ph ph-clock text-emerald-600"></i>
+                            <span>@b.Showtime?.StartTime.ToVietnameseDateTimeString()</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <i class="ph ph-film-slate text-emerald-600"></i>
+                            <span>@b.Showtime?.Room?.RoomName (@b.Showtime?.Format)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bóc tách chi tiết từng ghế -->
+            <div class="pt-4">
+                <div class="text-stone-500 text-xs font-bold uppercase tracking-wider mb-2.5">
+                    🎟️ Danh sách vé ghế (@Model.SeatLines.Count ghế)
+                </div>
+                <div class="space-y-2">
+                    @foreach (var line in Model.SeatLines)
+                    {
+                        <div class="flex justify-between items-center text-sm py-1 px-3 rounded-lg bg-stone-50 border border-stone-100">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-stone-900 font-mono text-base text-emerald-700">@line.SeatCode</span>
+                                <span class="text-xs px-2 py-0.5 rounded bg-stone-200 text-stone-700 font-medium">@line.SeatTypeName</span>
+                            </div>
+                            <span class="font-semibold text-stone-800">@line.UnitPrice.ToString("N0") đ</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- F&B summary -->
+        @if (b.BookingConcessions?.Any() == true)
+        {
+            <div class="rounded-2xl border border-[#E7E2D9] bg-white p-5 shadow-sm">
+                <h6 class="text-stone-500 text-xs font-bold uppercase tracking-widest mb-3">🍿 Đồ ăn & Nước uống đi kèm</h6>
+                <div class="space-y-2.5 divide-y divide-stone-100">
+                    @foreach (var bf in b.BookingConcessions)
+                    {
+                        <div class="flex justify-between items-center text-sm pt-2.5 first:pt-0">
+                            <div class="flex items-center gap-3 min-w-0">
+                                @if (!string.IsNullOrEmpty(bf.FoodItem?.ImageUrl))
+                                {
+                                    <img src="@bf.FoodItem.ImageUrl" alt="@bf.ItemName"
+                                         class="w-10 h-10 rounded-xl object-cover border border-stone-200 flex-shrink-0 shadow-2xs" />
+                                }
+                                <span class="text-stone-800 font-medium truncate">
+                                    @(bf.ItemName ?? bf.FoodItem?.Name) <span class="text-stone-500 ml-1 text-xs font-bold">×@bf.Quantity</span>
+                                </span>
+                            </div>
+                            <span class="text-emerald-700 font-bold whitespace-nowrap ml-3">@((bf.UnitPrice * bf.Quantity).ToString("N0")) đ</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Voucher -->
+        <div class="rounded-2xl border border-[#E7E2D9] bg-white p-5 shadow-sm">
+            <h6 class="text-stone-500 text-xs font-bold uppercase tracking-widest mb-3">🎟 Mã giảm giá</h6>
+            <div class="flex gap-2">
+                <input type="text" id="voucherCode"
+                       class="voucher-input flex-1 bg-stone-50 border border-stone-300 rounded-xl px-4 py-2.5 text-stone-900 text-sm placeholder-stone-400 uppercase tracking-wider font-medium"
+                       placeholder="Nhập mã giảm giá..."
+                       value="@Model.VoucherCode"
+                       @(Model.VoucherApplied ? "readonly" : "") />
+                <button type="button" id="applyVoucherBtn"
+                        class="px-5 py-2.5 rounded-xl text-sm font-semibold transition-all
+                               @(Model.VoucherApplied ? "bg-emerald-600 text-white cursor-default shadow-xs" : "bg-stone-800 hover:bg-stone-900 text-white shadow-xs")"
+                        @(Model.VoucherApplied ? "disabled" : "")>
+                    @(Model.VoucherApplied ? "✓ Đã áp dụng" : "Áp dụng")
+                </button>
+            </div>
+            <p id="voucherMsg" class="mt-2 text-xs font-medium @(Model.VoucherApplied ? "text-emerald-600" : "text-rose-600")">
+                @Model.VoucherMessage
+            </p>
+            <p class="mt-2 text-xs text-stone-500">Mã gợi ý: <span class="bg-stone-100 px-1.5 py-0.5 rounded text-stone-700 font-mono font-semibold">CINEMA10</span> · <span class="bg-stone-100 px-1.5 py-0.5 rounded text-stone-700 font-mono font-semibold">NEWUSER20</span> · <span class="bg-stone-100 px-1.5 py-0.5 rounded text-stone-700 font-mono font-semibold">VIP30</span></p>
+        </div>
+
+        <!-- Payment method Form -->
+        <form asp-action="Pay" method="post" id="payForm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="bookingId" value="@Model.BookingId" />
+
+            <!-- Email Delivery Notice -->
+            <div class="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 mb-5 flex items-center gap-3 shadow-2xs">
+                <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0 text-base">
+                    <i class="ph ph-envelope-simple"></i>
+                </div>
+                <div class="text-xs text-stone-600">
+                    Vé điện tử và mã QR sẽ tự động gửi tới email: 
+                    <span class="font-bold text-emerald-800 font-mono bg-emerald-100/60 px-1.5 py-0.5 rounded">@defaultEmail</span>
+                </div>
+            </div>
+
+            <!-- VietQR & Payment Option Box -->
+            <div class="rounded-2xl border border-[#E7E2D9] bg-white p-5 shadow-sm">
+                <h6 class="text-stone-500 text-xs font-bold uppercase tracking-widest mb-3">💳 Phương thức thanh toán</h6>
+                <div class="space-y-2.5">
+
+                    <!-- VietQR (Recommended) -->
+                    <label class="pay-option flex items-center gap-3.5 p-4 rounded-xl border-emerald-600 bg-emerald-50/40">
+                        <input type="radio" name="paymentMethod" value="BankCard" checked onchange="toggleVietQRBox(true)" />
+                        <span class="text-2xl">📱</span>
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm font-bold text-stone-900">Chuyển khoản VietQR (Napas 247)</span>
+                                <span class="px-2 py-0.5 text-[10px] bg-emerald-100 text-emerald-800 font-extrabold rounded-full">Khuyên dùng</span>
+                            </div>
+                            <div class="text-xs text-stone-500">Quét mã QR từ mọi App Ngân hàng hoặc Ví MoMo, ZaloPay, VNPay</div>
+                        </div>
+                    </label>
+
+                    <label class="pay-option flex items-center gap-3.5 p-4 rounded-xl">
+                        <input type="radio" name="paymentMethod" value="Cash" onchange="toggleVietQRBox(false)" />
+                        <span class="text-2xl">💵</span>
+                        <div class="flex-1">
+                            <div class="text-sm font-bold text-stone-900">Tiền mặt tại quầy vé</div>
+                            <div class="text-xs text-stone-500">Thanh toán trực tiếp bằng tiền mặt khi đến rạp</div>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- VietQR Napas 247 Dynamic Box -->
+                <div id="vietQrSection" class="mt-5 p-5 rounded-2xl bg-gradient-to-br from-emerald-50/80 via-blue-50/50 to-stone-50 border border-emerald-200 shadow-sm">
+                    <div class="flex items-center justify-between mb-4 border-b border-emerald-200/60 pb-3">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-8 h-8 rounded-lg bg-emerald-600 text-white font-black flex items-center justify-center text-sm shadow-xs">
+                                <i class="ph ph-qr-code"></i>
+                            </span>
+                            <div>
+                                <div class="text-sm font-bold text-stone-900">Quét mã VietQR để thanh toán tức thì</div>
+                                <div class="text-[11px] text-emerald-700">Mã giao dịch: <strong class="font-mono">@Model.TransactionCode</strong></div>
+                            </div>
+                        </div>
+                        <span class="text-xs bg-emerald-100 text-emerald-800 font-extrabold px-2.5 py-1 rounded-full border border-emerald-200">
+                            Napas 247 Live
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
+                        <!-- QR Code Image -->
+                        <div class="md:col-span-5 flex flex-col items-center">
+                            <div class="p-3 bg-white rounded-2xl border-2 border-emerald-300 shadow-md qr-container">
+                                <img id="vietQrImg"
+                                     src="@Model.VietQrImageUrl" 
+                                     alt="Mã thanh toán VietQR" 
+                                     class="w-48 h-48 object-contain rounded-lg" />
+                            </div>
+                            <span class="text-[11px] text-stone-500 mt-2 text-center flex items-center gap-1 font-medium">
+                                <i class="ph ph-scan text-emerald-600"></i> Quét mã qua App Ngân hàng bất kỳ
+                            </span>
+                        </div>
+
+                        <!-- Bank & Account Information -->
+                        <div class="md:col-span-7 space-y-2.5 text-xs text-stone-700">
+                            <!-- Đơn vị thụ hưởng -->
+                            <div class="p-2.5 bg-white/90 rounded-xl border border-stone-200 flex items-center justify-between shadow-2xs">
+                                <div>
+                                    <div class="text-stone-500 text-[10px] uppercase font-bold tracking-wider">Đơn vị thụ hưởng</div>
+                                    <div class="text-sm font-bold text-stone-900 uppercase">CINEMANAGEMENT CINEMA</div>
+                                </div>
+                                <span class="text-emerald-700 font-semibold text-[11px] bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Đã xác minh</span>
+                            </div>
+
+                            <!-- Số tiền -->
+                            <div class="p-2.5 bg-white/90 rounded-xl border border-stone-200 flex items-center justify-between shadow-2xs">
+                                <div>
+                                    <div class="text-stone-500 text-[10px] uppercase font-bold tracking-wider">Số tiền thanh toán</div>
+                                    <div class="text-base font-black text-emerald-700" id="qrAmountDisplay">@initialFinalAmount.ToString("N0") đ</div>
+                                </div>
+                                <button type="button" onclick="copyText(window.currentFinalAmount || '@initialFinalAmount', this)"
+                                        class="px-2.5 py-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-semibold transition-colors flex items-center gap-1">
+                                    <i class="ph ph-copy"></i> Sao chép
+                                </button>
+                            </div>
+
+                            <!-- Nội dung chuyển khoản -->
+                            <div class="p-2.5 bg-white/90 rounded-xl border border-stone-200 flex items-center justify-between shadow-2xs">
+                                <div>
+                                    <div class="text-stone-500 text-[10px] uppercase font-bold tracking-wider">Nội dung chuyển khoản (Bắt buộc)</div>
+                                    <div class="text-sm font-black text-amber-800 font-mono tracking-wide">VE @b.BookingCode</div>
+                                </div>
+                                <button type="button" onclick="copyText('VE @b.BookingCode', this)"
+                                        class="px-2.5 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-semibold transition-colors flex items-center gap-1">
+                                    <i class="ph ph-copy"></i> Sao chép
+                                </button>
+                            </div>
+
+                            <div class="text-[11px] text-stone-500 italic pt-1">
+                                💡 Sau khi chuyển khoản xong, vui lòng nhấn nút <strong>"Xác nhận đã thanh toán"</strong> bên dưới. Hệ thống sẽ lập tức xuất vé điện tử kèm mã QR!
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- RIGHT: Order summary sticky -->
+    <div class="w-full lg:w-80 flex-shrink-0 lg:sticky top-24">
+        <div class="rounded-2xl border border-[#E7E2D9] bg-white shadow-sm overflow-hidden">
+            <div class="px-5 py-4 border-b border-stone-200 bg-stone-50/50">
+                <div class="text-sm font-bold text-stone-900 uppercase tracking-wide">Tóm tắt thanh toán</div>
+            </div>
+            <div class="px-5 py-4 space-y-3 text-sm border-b border-stone-200">
+                <div class="flex justify-between text-stone-600">
+                    <span>Tiền vé (@Model.SeatCodes.Count ghế)</span>
+                    <span class="text-stone-900 font-semibold">@Model.SeatTotal.ToString("N0") đ</span>
+                </div>
+                @if (Model.FnBTotal > 0)
+                {
+                    <div class="flex justify-between text-stone-600">
+                        <span>Bắp nước (F&B)</span>
+                        <span class="text-stone-900 font-semibold">@Model.FnBTotal.ToString("N0") đ</span>
+                    </div>
+                }
+                <div class="flex justify-between text-emerald-700 font-semibold">
+                    <span>Giảm giá</span>
+                    <span id="discountDisplay">–@Model.DiscountAmount.ToString("N0") đ</span>
+                </div>
+            </div>
+            <div class="px-5 py-4 border-b border-stone-200 bg-stone-50/30">
+                <div class="flex justify-between items-center">
+                    <span class="font-bold text-stone-900">Tổng thanh toán</span>
+                    <span class="text-2xl font-black text-emerald-700" id="finalDisplay">
+                        @initialFinalAmount.ToString("N0") đ
+                    </span>
+                </div>
+            </div>
+            <div class="px-5 py-4 space-y-2.5">
+                <button type="submit" form="payForm"
+                        class="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]">
+                    <i class="ph ph-check-circle text-lg"></i> Xác nhận đã chuyển khoản
+                </button>
+                <a asp-action="AddFnB" asp-route-bookingId="@Model.BookingId"
+                   class="w-full py-2.5 rounded-xl border border-stone-300 hover:bg-stone-50 text-stone-700 text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                    <i class="ph ph-arrow-left"></i> Quay lại F&B
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const bookingId = @Model.BookingId;
+    const bookingCode = '@b.BookingCode';
+    let currentFinalAmount = @initialFinalAmount;
+    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+
+    function toggleVietQRBox(show) {
+        const box = document.getElementById('vietQrSection');
+        if (box) {
+            if (show) box.classList.remove('hidden');
+            else box.classList.add('hidden');
+        }
+    }
+
+    function updateQrCode() {
+        const qrImg = document.getElementById('vietQrImg');
+        const amountDisplay = document.getElementById('qrAmountDisplay');
+        if (amountDisplay) amountDisplay.textContent = currentFinalAmount.toLocaleString('vi-VN') + ' đ';
+        if (qrImg) {
+            const qrUrl = `https://img.vietqr.io/image/970422-0912111222-compact2.png?amount=${currentFinalAmount}&addInfo=VE%20${bookingCode}&accountName=CINEMANAGEMENT`;
+            qrImg.src = qrUrl;
+        }
+    }
+
+    function copyText(val, btn) {
+        navigator.clipboard.writeText(val).then(() => {
+            const orig = btn.innerHTML;
+            btn.innerHTML = '<i class="ph ph-check"></i> Đã chép!';
+            btn.classList.add('bg-emerald-200', 'text-emerald-900');
+            setTimeout(() => {
+                btn.innerHTML = orig;
+                btn.classList.remove('bg-emerald-200', 'text-emerald-900');
+            }, 1800);
+        });
+    }
+
+    // Voucher application AJAX
+    document.getElementById('applyVoucherBtn')?.addEventListener('click', async () => {
+        const code = document.getElementById('voucherCode').value.trim();
+        if (!code) return;
+        const btn = document.getElementById('applyVoucherBtn');
+        btn.textContent = 'Đang kiểm tra...';
+        btn.disabled = true;
+
+        const res  = await fetch('/Booking/ApplyVoucher', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `bookingId=${bookingId}&code=${encodeURIComponent(code)}&__RequestVerificationToken=${encodeURIComponent(token)}`
+        });
+        const data = await res.json();
+        const msg  = document.getElementById('voucherMsg');
+        msg.textContent = data.message;
+        if (data.success) {
+            msg.className = 'mt-2 text-xs font-medium text-emerald-600';
+            document.getElementById('discountDisplay').textContent = '–' + data.discountAmount.toLocaleString('vi-VN') + ' đ';
+            document.getElementById('finalDisplay').textContent = data.finalAmount.toLocaleString('vi-VN') + ' đ';
+            btn.textContent = '✓ Đã áp dụng';
+            btn.className = 'px-5 py-2.5 rounded-xl text-sm font-semibold transition-all bg-emerald-600 text-white cursor-default shadow-xs';
+            document.getElementById('voucherCode').readOnly = true;
+
+            currentFinalAmount = data.finalAmount;
+            window.currentFinalAmount = currentFinalAmount;
+            updateQrCode();
+        } else {
+            msg.className = 'mt-2 text-xs font-medium text-rose-600';
+            btn.textContent = 'Áp dụng';
+            btn.disabled = false;
+        }
+    });
+
+    // ── Countdown Timer Synchronization ───────────────────────────────
+    const holdData = document.getElementById('checkoutHoldUntilData');
+    const holdUntilMs = parseInt(holdData?.dataset?.holduntil || '0');
+    const timerEl = document.getElementById('checkoutTimer');
+
+    if (holdUntilMs > 0 && timerEl) {
+        function updateTimer() {
+            const remaining = holdUntilMs - Date.now();
+            if (remaining <= 0) {
+                timerEl.textContent = '00:00';
+                alert('Thời gian giữ vé của bạn đã hết hạn! Vui lòng chọn lại ghế để tiếp tục.');
+                window.location.href = '/Booking/SelectSeat?showtimeId=@b.ShowtimeId';
+                return;
+            }
+            const mins = Math.floor(remaining / 60000);
+            const secs = Math.floor((remaining % 60000) / 1000);
+            timerEl.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+        updateTimer();
+        setInterval(updateTimer, 1000);
+    }
+
+    // ── Polling kiểm tra trạng thái thanh toán tự động mỗi 3 giây ──────
+    setInterval(async () => {
+        try {
+            const res = await fetch(`/Booking/CheckPaymentStatus?bookingId=${bookingId}`);
+            const data = await res.json();
+            if (data.success && data.isPaid) {
+                window.location.href = `/Booking/Confirmation?bookingId=${bookingId}`;
+            }
+        } catch (e) {
+            // ignore network polling hiccups
+        }
+    }, 3000);
+</script>
+}
