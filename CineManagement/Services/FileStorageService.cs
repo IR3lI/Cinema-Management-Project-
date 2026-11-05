@@ -1,17 +1,20 @@
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 
 namespace CineManagement.Services;
 
+/// <summary>
+/// Bridge adapter chuyển đổi từ IFileStorageService legacy sang IStorageService (Cloudflare R2 / MinIO S3 API).
+/// Tuân thủ nguyên tắc Stateless Infrastructure (Constitution Principle V), cấm ghi đĩa cục bộ wwwroot/uploads.
+/// </summary>
 public class FileStorageService : IFileStorageService
 {
-    private readonly IWebHostEnvironment _webHostEnvironment;
-    private static readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".webp", ".gif" };
-    private const long MaxFileSizeBytes = 5 * 1024 * 1024; // 5 MB
+    private readonly IStorageService _storageService;
+    private readonly ILogger<FileStorageService> _logger;
 
-    public FileStorageService(IWebHostEnvironment webHostEnvironment)
+    public FileStorageService(IStorageService storageService, ILogger<FileStorageService> logger)
     {
-        _webHostEnvironment = webHostEnvironment;
+        _storageService = storageService;
+        _logger = logger;
     }
 
     public async Task<string> SaveImageAsync(IFormFile file, string folderName)
@@ -19,70 +22,38 @@ public class FileStorageService : IFileStorageService
         if (file == null || file.Length == 0)
             throw new ArgumentException("File không hợp lệ hoặc rỗng.", nameof(file));
 
-        var uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", folderName);
-        if (!Directory.Exists(uploadsFolder))
-        {
-            Directory.CreateDirectory(uploadsFolder);
-        }
+        using var stream = file.OpenReadStream();
+        var publicUrl = await _storageService.UploadFileAsync(
+            stream,
+            file.FileName,
+            file.ContentType,
+            folder: folderName);
 
-        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-        var uniqueFileName = $"{Guid.NewGuid()}{ext}";
-        var filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-        using (var fileStream = new FileStream(filePath, FileMode.Create))
-        {
-            await file.CopyToAsync(fileStream);
-        }
-
-        return $"/uploads/{folderName}/{uniqueFileName}";
+        _logger.LogInformation("Lưu ảnh qua Cloud-Native Storage: {Url}", publicUrl);
+        return publicUrl;
     }
 
-    public void DeleteFile(string? relativeUrl)
+    public void DeleteFile(string? relativeOrPublicUrl)
     {
-        if (string.IsNullOrWhiteSpace(relativeUrl))
+        if (string.IsNullOrWhiteSpace(relativeOrPublicUrl))
             return;
 
-        // Strip leading slash if present
-        var cleanPath = relativeUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
-        var fullPath = Path.Combine(_webHostEnvironment.WebRootPath, cleanPath);
-
-        if (File.Exists(fullPath))
+        // Xóa bất đồng bộ qua background task hoặc gọi trực tiếp
+        Task.Run(async () =>
         {
             try
             {
-                File.Delete(fullPath);
+                await _storageService.DeleteFileAsync(relativeOrPublicUrl);
             }
             catch (Exception ex)
             {
-                // Log warning or exception if file is in use
-                System.Diagnostics.Debug.WriteLine($"Không thể xóa file {fullPath}: {ex.Message}");
+                _logger.LogWarning(ex, "Lỗi khi xóa file trên S3: {Url}", relativeOrPublicUrl);
             }
-        }
+        });
     }
 
     public bool IsValidImage(IFormFile file, out string? errorMessage)
     {
-        errorMessage = null;
-
-        if (file == null || file.Length == 0)
-        {
-            errorMessage = "Vui lòng chọn tập tin ảnh.";
-            return false;
-        }
-
-        if (file.Length > MaxFileSizeBytes)
-        {
-            errorMessage = "Dung lượng ảnh vượt quá giới hạn tối đa (5MB).";
-            return false;
-        }
-
-        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-        if (!AllowedExtensions.Contains(ext))
-        {
-            errorMessage = $"Định dạng tập tin '{ext}' không được hỗ trợ. Vui lòng chọn file ảnh (.jpg, .jpeg, .png, .webp).";
-            return false;
-        }
-
-        return true;
+        return _storageService.IsValidImage(file, out errorMessage);
     }
 }

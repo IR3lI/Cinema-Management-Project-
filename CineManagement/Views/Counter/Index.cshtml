@@ -8,6 +8,7 @@
     var staffName = ViewBag.StaffName as string ?? User.Identity?.Name ?? "Nhân viên quầy";
 }
 
+@Html.AntiForgeryToken()
 <div class="container-fluid px-0">
     <!-- Header Quầy POS -->
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 pb-2 border-bottom">
@@ -565,7 +566,10 @@
         try {
             const resp = await fetch('/Counter/ScanBookingQr', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                },
                 body: JSON.stringify({ code: code })
             });
             const data = await resp.json();
@@ -717,7 +721,10 @@
         try {
             const resp = await fetch('/Counter/ConfirmPrintAndUpsell', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                },
                 body: JSON.stringify({
                     bookingId: currentBookingData.bookingId,
                     upsellItems: upsellArray,
@@ -994,7 +1001,10 @@
         try {
             const resp = await fetch('/Counter/CreateWalkInOrder', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                },
                 body: JSON.stringify({
                     showtimeId: showtimeId,
                     selectedSeatIds: selectedSeatIds,

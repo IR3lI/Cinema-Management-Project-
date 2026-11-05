@@ -1,0 +1,37 @@
+## .NET Core / C#
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+packages/
+*.nupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Environment & Secrets
+.env
+.env.*
+!.env.example
+appsettings.Development.json
+appsettings.Production.json
+appsettings.*.local.json
+
+## Storage & Uploads
+wwwroot/uploads/**
+!wwwroot/uploads/.gitkeep
+
+## IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.*~
+Thumbs.db
+.DS_Store
+
+## Docker & Database volumes
+mariadb_data/
+minio_data/
+nginx/certs/*.key

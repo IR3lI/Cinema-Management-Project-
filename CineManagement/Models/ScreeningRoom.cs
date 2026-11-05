@@ -52,6 +52,20 @@ public class ScreeningRoom
     [Display(Name = "Tổng số cột lưới (TotalCols)")]
     public int TotalCols { get; set; } = 16;
 
+    /// <summary>
+    /// Danh sách các hàng lối đi / hành lang ngang (ví dụ: "4,8"), ngăn cách bởi dấu phẩy.
+    /// </summary>
+    [StringLength(255)]
+    [Display(Name = "Hàng hành lang ngang (AisleRows)")]
+    public string? AisleRows { get; set; }
+
+    /// <summary>
+    /// Danh sách các cột lối đi / hành lang dọc (ví dụ: "5,12"), ngăn cách bởi dấu phẩy.
+    /// </summary>
+    [StringLength(255)]
+    [Display(Name = "Cột hành lang dọc (AisleCols)")]
+    public string? AisleCols { get; set; }
+
     // Tương thích ngược với các controller / view cũ
     [Display(Name = "Số hàng ghế vật lý")]
     public int Rows

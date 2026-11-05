@@ -121,7 +121,7 @@ public class CounterController : Controller
 
     // ── 1. Quét mã QR vé Online tại Quầy (Chưa in ngay, trả về thông tin để Upsell F&B) ──
     [HttpPost]
-    [IgnoreAntiforgeryToken]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> ScanBookingQr(
         [FromBody] CounterScanQrRequest? req,
         [FromForm] string? qrOrCode,
@@ -298,7 +298,7 @@ public class CounterController : Controller
 
     // ── 2. Xác nhận Upsell thêm Combo F&B tại quầy & In vé nhiệt 80mm ──────
     [HttpPost]
-    [IgnoreAntiforgeryToken]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> ConfirmPrintAndUpsell([FromBody] ConfirmPrintAndUpsellRequest request)
     {
         if (request == null || request.BookingId <= 0)
@@ -464,7 +464,7 @@ public class CounterController : Controller
 
     // ── 4. Bán vé trực tiếp cho khách vãng lai tại quầy (Walk-in POS) ─────
     [HttpPost]
-    [IgnoreAntiforgeryToken]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateWalkInOrder([FromBody] WalkInOrderRequest request)
     {
         if (request == null || request.ShowtimeId <= 0 || request.SeatIds == null || !request.SeatIds.Any())

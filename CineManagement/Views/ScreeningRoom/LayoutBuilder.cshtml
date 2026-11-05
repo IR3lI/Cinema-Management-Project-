@@ -8,6 +8,7 @@
     var coupleType = seatTypes.FirstOrDefault(st => st.Code == "COUPLE") ?? seatTypes.FirstOrDefault();
 }
 
+@Html.AntiForgeryToken()
 <div class="container-fluid px-0">
     <!-- Header & Action Bar -->
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 pb-2 border-bottom">
@@ -871,11 +872,16 @@
         try {
             const resp = await fetch('/ScreeningRoom/SaveSeatLayout', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                },
                 body: JSON.stringify({
                     roomId: roomId,
                     totalRows: totalRows,
                     totalCols: totalCols,
+                    aisleRows: Array.from(horizontalAisles).join(','),
+                    aisleCols: Array.from(verticalAisles).join(','),
                     seats: seatList
                 })
             });

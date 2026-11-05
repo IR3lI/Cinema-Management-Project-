@@ -72,6 +72,8 @@ public class ScreeningRoomController : Controller
         public int RoomId { get; set; }
         public int TotalRows { get; set; }
         public int TotalCols { get; set; }
+        public string? AisleRows { get; set; }
+        public string? AisleCols { get; set; }
         public List<SeatLayoutItemDto> Seats { get; set; } = new();
     }
 
@@ -88,7 +90,7 @@ public class ScreeningRoomController : Controller
 
     // ── API Lưu Sơ đồ Phòng Chiếu Trực quan ──────────────────────────────
     [HttpPost]
-    [IgnoreAntiforgeryToken]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> SaveSeatLayout([FromBody] SaveSeatLayoutRequest request)
     {
         if (request == null || request.RoomId <= 0)
@@ -107,6 +109,19 @@ public class ScreeningRoomController : Controller
         var seatTypesMap = await _context.SeatTypes.ToDictionaryAsync(st => st.SeatTypeId);
         var occupiedCoords = new HashSet<(int Row, int Col)>();
 
+        // Phân tích danh sách hành lang ngang và dọc
+        var aisleRowSet = (request.AisleRows ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(s => int.TryParse(s, out var v) ? v : 0)
+            .Where(v => v > 0)
+            .ToHashSet();
+
+        var aisleColSet = (request.AisleCols ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(s => int.TryParse(s, out var v) ? v : 0)
+            .Where(v => v > 0)
+            .ToHashSet();
+
         foreach (var s in request.Seats)
         {
             if (s.GridRow < 1 || s.GridRow > request.TotalRows)
@@ -115,11 +130,35 @@ public class ScreeningRoomController : Controller
             if (s.GridCol < 1 || s.GridCol + s.ColSpan - 1 > request.TotalCols)
                 return Json(new { success = false, message = $"Ghế {s.RowLabel}{s.SeatNumber} vượt quá giới hạn cột (1-{request.TotalCols})." });
 
+            // 1. Chặn ghế đặt trên hàng hành lang ngang
+            if (aisleRowSet.Contains(s.GridRow))
+            {
+                return Json(new
+                {
+                    success = false,
+                    errorCode = "AISLE_ROW_COLLISION",
+                    message = $"Ghế {s.RowLabel}{s.SeatNumber} không thể đặt trên hàng hành lang ngang {s.GridRow}!"
+                });
+            }
+
             if (!seatTypesMap.TryGetValue(s.SeatTypeId, out var seatType))
                 return Json(new { success = false, message = $"Loại ghế ID {s.SeatTypeId} không tồn tại trong hệ thống." });
 
             for (int c = s.GridCol; c < s.GridCol + s.ColSpan; c++)
             {
+                // 2. Thuật toán Aisle Guard: Chặn ghế (đặc biệt ghế đôi ColSpan=2) đè lên hành lang dọc
+                if (aisleColSet.Contains(c))
+                {
+                    var seatDesc = s.ColSpan > 1 ? "Ghế đôi (Sweetbox)" : "Ghế";
+                    return Json(new
+                    {
+                        success = false,
+                        errorCode = "AISLE_GUARD_VIOLATION",
+                        message = $"Vi phạm quy tắc an toàn hành lang: {seatDesc} {s.RowLabel}{s.SeatNumber} tại Hàng {s.GridRow} đè lên cột hành lang dọc tại cột {c}!",
+                        details = new { gridRow = s.GridRow, gridCol = s.GridCol, colSpan = s.ColSpan, conflictAisleCol = c }
+                    });
+                }
+
                 if (occupiedCoords.Contains((s.GridRow, c)))
                 {
                     return Json(new { success = false, message = $"Phát hiện trùng lặp tọa độ tại Hàng {s.GridRow}, Cột {c}!" });
@@ -133,6 +172,8 @@ public class ScreeningRoomController : Controller
         {
             room.TotalRows = request.TotalRows;
             room.TotalCols = request.TotalCols;
+            room.AisleRows = request.AisleRows;
+            room.AisleCols = request.AisleCols;
             _context.ScreeningRooms.Update(room);
 
             var oldSeats = room.Seats.ToList();
@@ -261,7 +302,7 @@ public class ScreeningRoomController : Controller
 
     // ── Toggle Seat Maintenance (AJAX) ────────────────────────────────────
     [HttpPost]
-    [IgnoreAntiforgeryToken]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> ToggleSeatMaintenance(int seatId)
     {
         var seat = await _context.Seats.Include(s => s.SeatType).FirstOrDefaultAsync(s => s.SeatId == seatId);

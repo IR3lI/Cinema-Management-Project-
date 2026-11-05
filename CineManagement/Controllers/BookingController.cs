@@ -40,6 +40,7 @@ public class BookingController : Controller
 
     // ── SCRUM-15: Select Seat ─────────────────────────────────────────────────
     [HttpGet]
+    [Authorize]
     public async Task<IActionResult> SelectSeat(int showtimeId)
     {
         var showtime = await _context.Showtimes
@@ -105,6 +106,7 @@ public class BookingController : Controller
     // ── SCRUM-17: Hold Seats (POST) ───────────────────────────────────────────
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [Authorize]
     public async Task<IActionResult> HoldSeats(int showtimeId, int[] selectedSeatIds)
     {
         if (selectedSeatIds.Length == 0)
