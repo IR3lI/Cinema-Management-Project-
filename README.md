@@ -4,7 +4,7 @@
 
 ---
 
-## 🏛️ Kiến Trúc Hệ Thống (System Architecture)
+## Kiến Trúc Hệ Thống (System Architecture)
 
 Hệ thống được thiết kế theo mô hình **phân tầng dọc (Vertical Layered Architecture)** chuẩn doanh nghiệp, sắp xếp các khối thành hàng dọc gọn gàng, luồng dữ liệu truyền thẳng từ trên xuống dưới:
 
@@ -15,9 +15,9 @@ flowchart TB
     %% ==========================================
     subgraph T1 ["TẦNG 1: NGƯỜI DÙNG & GIAO DIỆN (CLIENT TIER)"]
         direction TB
-        Client["👤 Khách Hàng (Web / Mobile Browser)"]
-        POS["🖥️ Quầy Vé Box Office (Quét QR & In Vé K80)"]
-        Admin["⚙️ Quản Trị Viên (Admin Portal Toàn Chuỗi)"]
+        Client["Khách Hàng (Web / Mobile Browser)"]
+        POS["Quầy Vé Box Office (Quét QR & In Vé K80)"]
+        Admin["Quản Trị Viên (Admin Portal Toàn Chuỗi)"]
     end
 
     %% ==========================================
@@ -25,8 +25,8 @@ flowchart TB
     %% ==========================================
     subgraph T2 ["TẦNG 2: CỔNG BẢO MẬT & ĐỊNH TUYẾN (GATEWAY TIER)"]
         direction TB
-        CF["🛡️ Cloudflare Edge (WAF, Chống DDoS & SSL 1.3)"]
-        Nginx["🌐 NGINX Reverse Proxy (Định Tuyến & WebSockets)"]
+        CF["Cloudflare Edge (WAF, Chống DDoS & SSL 1.3)"]
+        Nginx["NGINX Reverse Proxy (Định Tuyến & WebSockets)"]
         CF ==>|"TLS Origin CA"| Nginx
     end
 
@@ -35,10 +35,10 @@ flowchart TB
     %% ==========================================
     subgraph T3 ["TẦNG 3: MÁY CHỦ TRUNG TÂM (ASP.NET CORE 10 MODULAR MONOLITH)"]
         direction TB
-        API["🌐 Web MVC & REST APIs (Tiếp Nhận & Điều Hướng)"]
-        SignalR["⚡ SignalR Real-Time Hub (Giữ Ghế Tức Thì &lt; 50ms)"]
-        Modules["📦 5 Modules Nghiệp Vụ (Cinemas • Catalog • Ticketing • Ordering • Payments)"]
-        Workers["⏳ Background Workers (Nhả Ghế Quá Hạn & Gửi Vé Outbox)"]
+        API["Web MVC & REST APIs (Tiếp Nhận & Điều Hướng)"]
+        SignalR["SignalR Real-Time Hub (Giữ Ghế Tức Thì &lt; 50ms)"]
+        Modules["5 Modules Nghiệp Vụ (Cinemas, Catalog, Ticketing, Ordering, Payments)"]
+        Workers["Background Workers (Nhả Ghế Quá Hạn & Gửi Vé Outbox)"]
         
         API --> SignalR
         SignalR --> Modules
@@ -50,9 +50,9 @@ flowchart TB
     %% ==========================================
     subgraph T4 ["TẦNG 4: CƠ SỞ DỮ LIỆU & DỊCH VỤ ĐÁM MÂY (DATA & SERVICES)"]
         direction TB
-        DB[("🗄️ MariaDB 10.11 Server (12 Bảng 3NF, Giao Dịch ACID)")]
-        R2[("☁️ Cloudflare R2 / S3 (Lưu Poster & QR Vé)")]
-        Ext["🔌 Dịch Vụ Ngoài (VietQR Banking & Google SMTP)"]
+        DB[("MariaDB 10.11 Server (12 Bảng 3NF, Giao Dịch ACID)")]
+        R2[("Cloudflare R2 / S3 (Lưu Poster & QR Vé)")]
+        Ext["Dịch Vụ Ngoài (VietQR Banking & Google SMTP)"]
     end
 
     %% ==========================================
@@ -78,22 +78,22 @@ flowchart TB
     style Ext fill:#f1f5f9,stroke:#475569,stroke-width:2px,color:#0f172a;
 ```
 
-### 📋 Vai Trò Từng Thành Phần Trong Hệ Thống
+### Vai Trò Từng Thành Phần Trong Hệ Thống
 
 | Tầng | Thành phần | Trách nhiệm cốt lõi |
 | :--- | :--- | :--- |
-| **1. Clients** | **👤 Khách Hàng** | Đặt vé, xem phim, tương tác sơ đồ ghế 2D, nhận đồng bộ qua SignalR WebSocket ($< 50\text{ ms}$). |
-| | **🖥️ Quầy Vé POS** | Nhân viên quét QR vé qua camera (`html5-qrcode`), cờ `IsPrinted Guard`, Upsell bắp nước và in vé nhiệt K80. |
-| | **⚙️ Quản Trị Viên** | Quản lý cụm rạp, phòng chiếu, layout ghế (Visual Seat Studio & Aisle Guard), phim, suất chiếu. |
-| **2. Gateway** | **🛡️ Cloudflare** | WAF chống DDoS, ẩn IP gốc máy chủ, SSL 1.3 và CDN cache hình ảnh poster. |
-| | **🌐 NGINX** | Reverse proxy, cân bằng tải, nén và xử lý cấu hình WebSocket Upgrade cho kết nối song công. |
-| **3. Backend** | **🌐 Web API / MVC** | Điểm tiếp nhận request, xác thực danh tính Identity, phân quyền RBAC và kiểm tra tính hợp lệ dữ liệu. |
-| | **⚡ SignalR Hub** | Quản lý Room theo Suất chiếu (`showtime_{id}`), phát sóng sự kiện thay đổi trạng thái ghế tức thì. |
-| | **📦 5 Modules** | `Cinemas`, `Catalog`, `Ticketing`, `Ordering`, `Payments` tuân thủ nguyên lý ranh giới miền Bounded Context. |
-| | **⏳ Workers** | `SeatHoldTimeoutWorker` (nhả ghế quá hạn 5 phút) & `OutboxMessageWorker` (gửi mail vé qua SMTP). |
-| **4. Storage** | **🗄️ MariaDB** | Cơ sở dữ liệu giao dịch 12 bảng chuẩn hóa 3NF, mức cô lập `Serializable` bảo đảm ACID. |
-| | **☁️ Cloudflare R2** | Lưu trữ đám mây S3 không phí tải ra (Zero Egress Fees) cho poster phim và mã QR vé. |
-| | **🔌 Dịch Vụ Ngoài**| Cổng thanh toán tự động VietQR Napas 247 và cổng thư tín Google SMTP. |
+| **1. Clients** | **Khách Hàng** | Đặt vé, xem phim, tương tác sơ đồ ghế 2D, nhận đồng bộ qua SignalR WebSocket ($< 50\text{ ms}$). |
+| | **Quầy Vé POS** | Nhân viên quét QR vé qua camera (`html5-qrcode`), cờ `IsPrinted Guard`, Upsell bắp nước và in vé nhiệt K80. |
+| | **Quản Trị Viên** | Quản lý cụm rạp, phòng chiếu, layout ghế (Visual Seat Studio & Aisle Guard), phim, suất chiếu. |
+| **2. Gateway** | **Cloudflare** | WAF chống DDoS, ẩn IP gốc máy chủ, SSL 1.3 và CDN cache hình ảnh poster. |
+| | **NGINX** | Reverse proxy, cân bằng tải, nén và xử lý cấu hình WebSocket Upgrade cho kết nối song công. |
+| **3. Backend** | **Web API / MVC** | Điểm tiếp nhận request, xác thực danh tính Identity, phân quyền RBAC và kiểm tra tính hợp lệ dữ liệu. |
+| | **SignalR Hub** | Quản lý Room theo Suất chiếu (`showtime_{id}`), phát sóng sự kiện thay đổi trạng thái ghế tức thì. |
+| | **5 Modules** | `Cinemas`, `Catalog`, `Ticketing`, `Ordering`, `Payments` tuân thủ nguyên lý ranh giới miền Bounded Context. |
+| | **Workers** | `SeatHoldTimeoutWorker` (nhả ghế quá hạn 5 phút) & `OutboxMessageWorker` (gửi mail vé qua SMTP). |
+| **4. Storage** | **MariaDB** | Cơ sở dữ liệu giao dịch 12 bảng chuẩn hóa 3NF, mức cô lập `Serializable` bảo đảm ACID. |
+| | **Cloudflare R2** | Lưu trữ đám mây S3 không phí tải ra (Zero Egress Fees) cho poster phim và mã QR vé. |
+| | **Dịch Vụ Ngoài**| Cổng thanh toán tự động VietQR Napas 247 và cổng thư tín Google SMTP. |
 
 ---
 

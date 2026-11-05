@@ -36,9 +36,9 @@ flowchart TB
     %% ==========================================
     subgraph T1 ["TẦNG 1: NGƯỜI DÙNG & GIAO DIỆN (CLIENT TIER)"]
         direction TB
-        Client["👤 Khách Hàng (Web / Mobile Browser)"]
-        POS["🖥️ Quầy Vé Box Office (Quét QR & In Vé K80)"]
-        Admin["⚙️ Quản Trị Viên (Admin Portal Toàn Chuỗi)"]
+        Client["Khách Hàng (Web / Mobile Browser)"]
+        POS["Quầy Vé Box Office (Quét QR & In Vé K80)"]
+        Admin["Quản Trị Viên (Admin Portal Toàn Chuỗi)"]
     end
 
     %% ==========================================
@@ -46,8 +46,8 @@ flowchart TB
     %% ==========================================
     subgraph T2 ["TẦNG 2: CỔNG BẢO MẬT & ĐỊNH TUYẾN (GATEWAY TIER)"]
         direction TB
-        CF["🛡️ Cloudflare Edge (WAF, Chống DDoS & SSL 1.3)"]
-        Nginx["🌐 NGINX Reverse Proxy (Định Tuyến & WebSockets)"]
+        CF["Cloudflare Edge (WAF, Chống DDoS & SSL 1.3)"]
+        Nginx["NGINX Reverse Proxy (Định Tuyến & WebSockets)"]
         CF ==>|"TLS Origin CA"| Nginx
     end
 
@@ -56,10 +56,10 @@ flowchart TB
     %% ==========================================
     subgraph T3 ["TẦNG 3: MÁY CHỦ TRUNG TÂM (ASP.NET CORE 10 MODULAR MONOLITH)"]
         direction TB
-        API["🌐 Web MVC & REST APIs (Tiếp Nhận & Điều Hướng)"]
-        SignalR["⚡ SignalR Real-Time Hub (Giữ Ghế Tức Thì &lt; 50ms)"]
-        Modules["📦 5 Modules Nghiệp Vụ (Cinemas • Catalog • Ticketing • Ordering • Payments)"]
-        Workers["⏳ Background Workers (Nhả Ghế Quá Hạn & Gửi Vé Outbox)"]
+        API["Web MVC & REST APIs (Tiếp Nhận & Điều Hướng)"]
+        SignalR["SignalR Real-Time Hub (Giữ Ghế Tức Thì &lt; 50ms)"]
+        Modules["5 Modules Nghiệp Vụ (Cinemas, Catalog, Ticketing, Ordering, Payments)"]
+        Workers["Background Workers (Nhả Ghế Quá Hạn & Gửi Vé Outbox)"]
         
         API --> SignalR
         SignalR --> Modules
@@ -71,9 +71,9 @@ flowchart TB
     %% ==========================================
     subgraph T4 ["TẦNG 4: CƠ SỞ DỮ LIỆU & DỊCH VỤ ĐÁM MÂY (DATA & SERVICES)"]
         direction TB
-        DB[("🗄️ MariaDB 10.11 Server (12 Bảng 3NF, Giao Dịch ACID)")]
-        R2[("☁️ Cloudflare R2 / S3 (Lưu Poster & QR Vé)")]
-        Ext["🔌 Dịch Vụ Ngoài (VietQR Banking & Google SMTP)"]
+        DB[("MariaDB 10.11 Server (12 Bảng 3NF, Giao Dịch ACID)")]
+        R2[("Cloudflare R2 / S3 (Lưu Poster & QR Vé)")]
+        Ext["Dịch Vụ Ngoài (VietQR Banking & Google SMTP)"]
     end
 
     %% ==========================================
@@ -103,18 +103,18 @@ flowchart TB
 
 | Tầng kiến trúc | Thành phần | Vai trò kỹ thuật & Trách nhiệm nghiệp vụ |
 | :--- | :--- | :--- |
-| **Tầng 1: Clients** | **👤 Khách Hàng (Customer)** | Trình duyệt Web/Mobile cho phép người dùng xem phim, lịch chiếu, chọn ghế trực quan trên sơ đồ 2D thời gian thực (CSS Grid), đặt vé và quét mã VietQR chuyển khoản. Duy trì WebSocket với SignalR để nhận cập nhật ghế tức thì ($< 50\text{ ms}$). |
-| | **🖥️ Quầy Vé Box Office (Staff POS)** | Giao diện "một cửa" `/Counter` cho nhân viên rạp: Dùng camera (`html5-qrcode`) quét mã QR vé điện tử của khách, kích hoạt cờ chống in vé lậu (`IsPrinted Guard`), Upsell bắp nước và in vé nhiệt rời từng ghế khổ K80 80mm qua giao thức ESC/POS. |
-| | **⚙️ Quản Trị Viên (Admin Portal)** | Giao diện dành riêng cho Admin quản lý toàn bộ chuỗi rạp: Cụm rạp chi nhánh (`Cinemas`), phòng chiếu (`ScreeningRooms`), sơ đồ ghế 2D (Visual Seat Studio với quy tắc Aisle Guard), danh mục phim (`Movies`), lập lịch suất chiếu (`Showtimes`) và báo cáo doanh thu. |
-| **Tầng 2: Gateway** | **🛡️ Cloudflare Edge** | Tuyến phòng ngự biên: Ẩn IP máy chủ gốc, lọc tấn công DDoS (L3/L4/L7), WAF chặn bot độc hại, mã hóa SSL/TLS 1.3 tới người dùng, và CDN cache tài nguyên tĩnh/poster. Giao tiếp với VPS thông qua chứng chỉ nội bộ **Cloudflare Origin CA Certificate**. |
-| | **🌐 NGINX Reverse Proxy** | Cổng tiếp nhận duy nhất trên VPS: Điều hướng lưu lượng vào container backend qua mạng Docker; xử lý nén (Gzip/Brotli) và cấu hình **WebSocket Upgrade Headers** (`Upgrade $http_upgrade; Connection "upgrade";`) để duy trì kênh song công ổn định cho SignalR. |
-| **Tầng 3: Backend** | **🌐 Web MVC & REST APIs** | Điểm tiếp nhận request từ Client: Xác thực người dùng (Identity & Cookie Auth), phân quyền 3 Actor (RBAC), kiểm tra tính hợp lệ của dữ liệu (Validation) và điều hướng đến các Module nghiệp vụ tương ứng. |
-| | **⚡ SignalR Real-Time Hub** | "Trái tim" thời gian thực của hệ thống: Phân nhóm kết nối theo từng suất chiếu (`showtime_{id}`). Phát sóng sự kiện `SeatStatusChanged` tức thì ($< 50\text{ ms}$) tới toàn bộ client trong nhóm ngay khi có ghế được giữ/nhả/thanh toán, ngăn chặn xung đột giữ ghế ngay tại giao diện. |
-| | **📦 5 Bounded Modules** | Cốt lõi nghiệp vụ theo chuẩn **Modular Monolith**: <br/>• `Cinemas`: Quản trị rạp, phòng chiếu, sơ đồ ghế 2D, quy tắc Sweetbox Aisle Guard.<br/>• `Catalog`: Quản lý danh mục phim, độ tuổi, định dạng, lập lịch suất chiếu.<br/>• `Ticketing`: Quản lý `ShowtimeSeats`, kiểm soát tương tranh bằng `Version Concurrency Token`.<br/>• `Ordering`: Quản lý đơn `Bookings`, sinh vé `Tickets`, bán F&B và xử lý POS `/Counter`.<br/>• `Payments`: Xử lý thanh toán VietQR với `IsolationLevel.Serializable` và Transactional Outbox. |
-| | **⏳ Background Workers** | Hai tiến trình nền chạy ngầm độc lập:<br/>• `SeatHoldTimeoutWorker`: Định kỳ quét mỗi 30s để tự động giải phóng ghế `Held` đã quá hạn 5 phút về `Available`, bắn tín hiệu SignalR nhả ghế.<br/>• `OutboxMessageWorker`: Thực thi Transactional Outbox Pattern, định kỳ quét bảng `outboxmessages` mỗi 5s để gửi email vé điện tử kèm mã QR qua Google SMTP với cơ chế Retry 3 lần (*At-Least-Once Delivery*). |
-| **Tầng 4: Data & Cloud** | **🗄️ MariaDB 10.11 Server** | Cơ sở dữ liệu quan hệ nguồn (Source of Truth): Lưu trữ 12 bảng chuẩn hóa 3NF, bảo đảm tính toàn vẹn giao dịch $ACID$ với Storage Engine InnoDB. |
-| | **☁️ Cloudflare R2 / S3** | Hạ tầng lưu trữ đám mây chuẩn S3 API (Zero Egress Fees): Lưu trữ an toàn Poster phim độ phân giải cao và toàn bộ ảnh mã QR vé điện tử, giải phóng máy chủ web khỏi lưu file cục bộ, hỗ trợ mở rộng scale-out dễ dàng. |
-| | **🔌 Dịch Vụ Ngoài (External)** | • **VietQR Napas 247**: Sinh mã QR thanh toán động kèm số tài khoản và cú pháp chuyển khoản đơn hàng.<br/>• **Google SMTP Server**: Cổng gửi email vé điện tử tự động qua cổng 587 bảo mật TLS. |
+| **Tầng 1: Clients** | **Khách Hàng (Customer)** | Trình duyệt Web/Mobile cho phép người dùng xem phim, lịch chiếu, chọn ghế trực quan trên sơ đồ 2D thời gian thực (CSS Grid), đặt vé và quét mã VietQR chuyển khoản. Duy trì WebSocket với SignalR để nhận cập nhật ghế tức thì ($< 50\text{ ms}$). |
+| | **Quầy Vé Box Office (Staff POS)** | Giao diện "một cửa" `/Counter` cho nhân viên rạp: Dùng camera (`html5-qrcode`) quét mã QR vé điện tử của khách, kích hoạt cờ chống in vé lậu (`IsPrinted Guard`), Upsell bắp nước và in vé nhiệt rời từng ghế khổ K80 80mm qua giao thức ESC/POS. |
+| | **Quản Trị Viên (Admin Portal)** | Giao diện dành riêng cho Admin quản lý toàn bộ chuỗi rạp: Cụm rạp chi nhánh (`Cinemas`), phòng chiếu (`ScreeningRooms`), sơ đồ ghế 2D (Visual Seat Studio với quy tắc Aisle Guard), danh mục phim (`Movies`), lập lịch suất chiếu (`Showtimes`) và báo cáo doanh thu. |
+| **Tầng 2: Gateway** | **Cloudflare Edge** | Tuyến phòng ngự biên: Ẩn IP máy chủ gốc, lọc tấn công DDoS (L3/L4/L7), WAF chặn bot độc hại, mã hóa SSL/TLS 1.3 tới người dùng, và CDN cache tài nguyên tĩnh/poster. Giao tiếp với VPS thông qua chứng chỉ nội bộ **Cloudflare Origin CA Certificate**. |
+| | **NGINX Reverse Proxy** | Cổng tiếp nhận duy nhất trên VPS: Điều hướng lưu lượng vào container backend qua mạng Docker; xử lý nén (Gzip/Brotli) và cấu hình **WebSocket Upgrade Headers** (`Upgrade $http_upgrade; Connection "upgrade";`) để duy trì kênh song công ổn định cho SignalR. |
+| **Tầng 3: Backend** | **Web MVC & REST APIs** | Điểm tiếp nhận request từ Client: Xác thực người dùng (Identity & Cookie Auth), phân quyền 3 Actor (RBAC), kiểm tra tính hợp lệ của dữ liệu (Validation) và điều hướng đến các Module nghiệp vụ tương ứng. |
+| | **SignalR Real-Time Hub** | "Trái tim" thời gian thực của hệ thống: Phân nhóm kết nối theo từng suất chiếu (`showtime_{id}`). Phát sóng sự kiện `SeatStatusChanged` tức thì ($< 50\text{ ms}$) tới toàn bộ client trong nhóm ngay khi có ghế được giữ/nhả/thanh toán, ngăn chặn xung đột giữ ghế ngay tại giao diện. |
+| | **5 Bounded Modules** | Cốt lõi nghiệp vụ theo chuẩn **Modular Monolith**: <br/>- `Cinemas`: Quản trị rạp, phòng chiếu, sơ đồ ghế 2D, quy tắc Sweetbox Aisle Guard.<br/>- `Catalog`: Quản lý danh mục phim, độ tuổi, định dạng, lập lịch suất chiếu.<br/>- `Ticketing`: Quản lý `ShowtimeSeats`, kiểm soát tương tranh bằng `Version Concurrency Token`.<br/>- `Ordering`: Quản lý đơn `Bookings`, sinh vé `Tickets`, bán F&B và xử lý POS `/Counter`.<br/>- `Payments`: Xử lý thanh toán VietQR với `IsolationLevel.Serializable` và Transactional Outbox. |
+| | **Background Workers** | Hai tiến trình nền chạy ngầm độc lập:<br/>- `SeatHoldTimeoutWorker`: Định kỳ quét mỗi 30s để tự động giải phóng ghế `Held` đã quá hạn 5 phút về `Available`, bắn tín hiệu SignalR nhả ghế.<br/>- `OutboxMessageWorker`: Thực thi Transactional Outbox Pattern, định kỳ quét bảng `outboxmessages` mỗi 5s để gửi email vé điện tử kèm mã QR qua Google SMTP với cơ chế Retry 3 lần (*At-Least-Once Delivery*). |
+| **Tầng 4: Data & Cloud** | **MariaDB 10.11 Server** | Cơ sở dữ liệu quan hệ nguồn (Source of Truth): Lưu trữ 12 bảng chuẩn hóa 3NF, bảo đảm tính toàn vẹn giao dịch $ACID$ với Storage Engine InnoDB. |
+| | **Cloudflare R2 / S3** | Hạ tầng lưu trữ đám mây chuẩn S3 API (Zero Egress Fees): Lưu trữ an toàn Poster phim độ phân giải cao và toàn bộ ảnh mã QR vé điện tử, giải phóng máy chủ web khỏi lưu file cục bộ, hỗ trợ mở rộng scale-out dễ dàng. |
+| | **Dịch Vụ Ngoài (External)** | - **VietQR Napas 247**: Sinh mã QR thanh toán động kèm số tài khoản và cú pháp chuyển khoản đơn hàng.<br/>- **Google SMTP Server**: Cổng gửi email vé điện tử tự động qua cổng 587 bảo mật TLS. |
 
 ---
 
