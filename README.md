@@ -1,103 +1,23 @@
-# 🎬 CineManagement - Hệ Thống Quản Lý & Đặt Vé Rạp Chiếu Phim
+# CineManagement - Hệ Thống Quản Lý & Đặt Vé Rạp Chiếu Phim
 
-> **CineManagement** là hệ thống quản lý và bán vé rạp chiếu phim hiện đại xây dựng trên nền tảng **ASP.NET Core 9**, áp dụng kiến trúc **Modular Monolith**, tích hợp đồng bộ ghế theo thời gian thực (**SignalR WebSockets**), thanh toán tự động (**VietQR / VNPay**), xuất vé điện tử mã hóa QR và cơ chế chịu tải với **NGINX Reverse Proxy & Load Balancer**.
-
----
-
-## Kiến Trúc Hệ Thống (System Architecture)
-
-Hệ thống được thiết kế theo mô hình **phân tầng dọc (Vertical Layered Architecture)** chuẩn doanh nghiệp, sắp xếp các khối thành hàng dọc gọn gàng, luồng dữ liệu truyền thẳng từ trên xuống dưới:
-
-```mermaid
-flowchart TB
-    %% ==========================================
-    %% 1. TẦNG NGƯỜI DÙNG & THIẾT BỊ (XẾP HÀNG DỌC)
-    %% ==========================================
-    subgraph T1 ["TẦNG 1: NGƯỜI DÙNG & GIAO DIỆN (CLIENT TIER)"]
-        direction TB
-        Client["Khách Hàng (Web / Mobile Browser)"]
-        POS["Quầy Vé Box Office (Quét QR & In Vé K80)"]
-        Admin["Quản Trị Viên (Admin Portal Toàn Chuỗi)"]
-    end
-
-    %% ==========================================
-    %% 2. TẦNG BẢO MẬT & ĐIỀU PHỐI (XẾP HÀNG DỌC)
-    %% ==========================================
-    subgraph T2 ["TẦNG 2: CỔNG BẢO MẬT & ĐỊNH TUYẾN (GATEWAY TIER)"]
-        direction TB
-        CF["Cloudflare Edge (WAF, Chống DDoS & SSL 1.3)"]
-        Nginx["NGINX Reverse Proxy (Định Tuyến & WebSockets)"]
-        CF ==>|"TLS Origin CA"| Nginx
-    end
-
-    %% ==========================================
-    %% 3. TẦNG MÁY CHỦ XỬ LÝ (XẾP HÀNG DỌC)
-    %% ==========================================
-    subgraph T3 ["TẦNG 3: MÁY CHỦ TRUNG TÂM (ASP.NET CORE 10 MODULAR MONOLITH)"]
-        direction TB
-        API["Web MVC & REST APIs (Tiếp Nhận & Điều Hướng)"]
-        SignalR["SignalR Real-Time Hub (Giữ Ghế Tức Thì &lt; 50ms)"]
-        Modules["5 Modules Nghiệp Vụ (Cinemas, Catalog, Ticketing, Ordering, Payments)"]
-        Workers["Background Workers (Nhả Ghế Quá Hạn & Gửi Vé Outbox)"]
-        
-        API --> SignalR
-        SignalR --> Modules
-        Modules --> Workers
-    end
-
-    %% ==========================================
-    %% 4. TẦNG DỮ LIỆU & DỊCH VỤ NGOÀI (XẾP HÀNG DỌC)
-    %% ==========================================
-    subgraph T4 ["TẦNG 4: CƠ SỞ DỮ LIỆU & DỊCH VỤ ĐÁM MÂY (DATA & SERVICES)"]
-        direction TB
-        DB[("MariaDB 10.11 Server (12 Bảng 3NF, Giao Dịch ACID)")]
-        R2[("Cloudflare R2 / S3 (Lưu Poster & QR Vé)")]
-        Ext["Dịch Vụ Ngoài (VietQR Banking & Google SMTP)"]
-    end
-
-    %% ==========================================
-    %% LUỒNG TƯƠNG TÁC THẲNG ĐỨNG TỪ TRÊN XUỐNG DƯỚI (HÀNG DỌC)
-    %% ==========================================
-    T1 ==>|"HTTPS & WebSockets"| CF
-    Nginx ==>|"Chuyển Tiếp HTTP:5000 & WS"| API
-    Workers ==>|"Giao Dịch ACID / EF Core"| DB
-    Workers -.->|"Upload Poster & QR (S3 API)"| R2
-    Workers -.->|"REST VietQR & SMTP TLS 587"| Ext
-
-    %% ==========================================
-    %% MÀU SẮC PHÂN TẦNG RÕ RÀNG
-    %% ==========================================
-    style T1 fill:#f0f9ff,stroke:#0284c7,stroke-width:2px;
-    style T2 fill:#faf5ff,stroke:#9333ea,stroke-width:2px;
-    style T3 fill:#f0fdf4,stroke:#16a34a,stroke-width:2px;
-    style T4 fill:#fffbeb,stroke:#d97706,stroke-width:2px;
-
-    style SignalR fill:#fef08a,stroke:#ca8a04,stroke-width:2px,color:#713f12,font-weight:bold;
-    style DB fill:#f1f5f9,stroke:#475569,stroke-width:2px,color:#0f172a;
-    style R2 fill:#f1f5f9,stroke:#475569,stroke-width:2px,color:#0f172a;
-    style Ext fill:#f1f5f9,stroke:#475569,stroke-width:2px,color:#0f172a;
-```
-
-### Vai Trò Từng Thành Phần Trong Hệ Thống
-
-| Tầng | Thành phần | Trách nhiệm cốt lõi |
-| :--- | :--- | :--- |
-| **1. Clients** | **Khách Hàng** | Đặt vé, xem phim, tương tác sơ đồ ghế 2D, nhận đồng bộ qua SignalR WebSocket ($< 50\text{ ms}$). |
-| | **Quầy Vé POS** | Nhân viên quét QR vé qua camera (`html5-qrcode`), cờ `IsPrinted Guard`, Upsell bắp nước và in vé nhiệt K80. |
-| | **Quản Trị Viên** | Quản lý cụm rạp, phòng chiếu, layout ghế (Visual Seat Studio & Aisle Guard), phim, suất chiếu. |
-| **2. Gateway** | **Cloudflare** | WAF chống DDoS, ẩn IP gốc máy chủ, SSL 1.3 và CDN cache hình ảnh poster. |
-| | **NGINX** | Reverse proxy, cân bằng tải, nén và xử lý cấu hình WebSocket Upgrade cho kết nối song công. |
-| **3. Backend** | **Web API / MVC** | Điểm tiếp nhận request, xác thực danh tính Identity, phân quyền RBAC và kiểm tra tính hợp lệ dữ liệu. |
-| | **SignalR Hub** | Quản lý Room theo Suất chiếu (`showtime_{id}`), phát sóng sự kiện thay đổi trạng thái ghế tức thì. |
-| | **5 Modules** | `Cinemas`, `Catalog`, `Ticketing`, `Ordering`, `Payments` tuân thủ nguyên lý ranh giới miền Bounded Context. |
-| | **Workers** | `SeatHoldTimeoutWorker` (nhả ghế quá hạn 5 phút) & `OutboxMessageWorker` (gửi mail vé qua SMTP). |
-| **4. Storage** | **MariaDB** | Cơ sở dữ liệu giao dịch 12 bảng chuẩn hóa 3NF, mức cô lập `Serializable` bảo đảm ACID. |
-| | **Cloudflare R2** | Lưu trữ đám mây S3 không phí tải ra (Zero Egress Fees) cho poster phim và mã QR vé. |
-| | **Dịch Vụ Ngoài**| Cổng thanh toán tự động VietQR Napas 247 và cổng thư tín Google SMTP. |
+> **CineManagement** là hệ thống quản lý và bán vé rạp chiếu phim hiện đại xây dựng trên nền tảng **ASP.NET Core 10**, áp dụng kiến trúc **Modular Monolith**, tích hợp đồng bộ ghế theo thời gian thực (**SignalR WebSockets**), thanh toán tự động (**VietQR / VNPay**), xuất vé điện tử mã hóa QR và cơ chế chịu tải với **NGINX Reverse Proxy & Load Balancer**.
 
 ---
 
-## 📂 Sơ Đồ Cấu Trúc Thư Mục Dự Án (Directory Structure)
+## Danh Mục Tài Liệu Kỹ Thuật
+
+Toàn bộ tài liệu đặc tả yêu cầu, thiết kế kiến trúc hệ thống và quy trình nghiệp vụ được tổ chức đầy đủ trong thư mục `docs/`:
+
+* [01. Product Backlog & Kế Hoạch Sprint](./docs/01_PRODUCT_BACKLOG.md)
+* [02. Đặc Tả Yêu Cầu Hệ Thống (SRS)](./docs/02_YEU_CAU_HE_THONG.md)
+* [03. Sơ Đồ Phân Rã Chức Năng (FDD)](./docs/03_SO_DO_PHAN_RA_CHUC_NANG.md)
+* [04. Thiết Kế Kiến Trúc Hệ Thống](./docs/04_THIET_KE_HE_THONG.md)
+* [05. Thiết Kế Cơ Sở Dữ Liệu & ERD 3NF](./docs/05_THIET_KE_CO_SO_DU_LIEU.md)
+* [06. Quy Trình Nghiệp Vụ & Sequence Diagrams](./docs/06_QUY_TRINH_NGHIEP_VU_WORKFLOW.md)
+
+---
+
+## Sơ Đồ Cấu Trúc Thư Mục Dự Án (Directory Structure)
 
 Toàn bộ cây thư mục dự án được tổ chức khoa học, phân định rõ ràng giữa hạ tầng chạy (**Docker / Nginx**), các script vận hành (**Scripts**) và mã nguồn backend (**CineManagement**):
 
@@ -216,7 +136,7 @@ Cinema-Managment/
 
 ---
 
-## 🚀 Các Tính Năng Nổi Bật Của Hệ Thống
+## Các Tính Năng Nổi Bật Của Hệ Thống
 
 1. **Khóa ghế thời gian thực (Real-time Seat Locking):**
    - Khi một khách hàng bấm chọn ghế, tín hiệu được gửi qua `SeatBookingHub (SignalR)` tới tất cả người dùng khác đang mở phòng chiếu đó để chuyển ghế sang màu vàng (đang có người chọn), triệt tiêu hoàn toàn lỗi 2 người đặt trùng 1 ghế (**Race Condition**).
@@ -233,12 +153,12 @@ Cinema-Managment/
 
 ---
 
-## 🛠️ Công Nghệ Sử Dụng
+## Công Nghệ Sử Dụng
 
-- **Backend:** C# .NET 9 (ASP.NET Core MVC & Web API)
+- **Backend:** C# .NET 10 (ASP.NET Core MVC & Web API)
 - **Real-time:** ASP.NET Core SignalR (WebSockets)
-- **Cơ sở dữ liệu:** MySQL 8.0 / MariaDB qua Pomelo Entity Framework Core 9
-- **Reverse Proxy & Gateway:** NGINX 1.27
+- **Cơ sở dữ liệu:** MySQL 8.0 / MariaDB 10.11 qua Entity Framework Core 10
+- **Reverse Proxy & Gateway:** NGINX
 - **Bảo mật & Xác thực:** ASP.NET Core Identity & QR Token Cryptography
 - **Containerization:** Docker & Docker Compose
 - **Front-end:** Razor Views, JavaScript ES6, Tailwind CSS & HTML5 QR Scanner
