@@ -27,7 +27,6 @@ Hệ thống **CineManagement** được thiết kế theo mô hình **Modular M
 
 ## 2. SƠ ĐỒ KIẾN TRÚC TỔNG THỂ (HIGH-LEVEL ARCHITECTURE DIAGRAM)
 
-Sơ đồ được thiết kế theo mô hình **phân tầng dọc (Vertical Layered Architecture)** chuẩn doanh nghiệp, sắp xếp các khối thành hàng dọc gọn gàng, luồng dữ liệu truyền thẳng từ trên xuống dưới:
 
 ```mermaid
 flowchart TB
