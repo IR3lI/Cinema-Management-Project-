@@ -115,34 +115,20 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.LogoutPath = "/Account/Logout";
 });
 
-// ── Application Services & Background Workers ──────────────────────────────
-builder.Services.Configure<StorageOptions>(builder.Configuration.GetSection(StorageOptions.SectionName));
-builder.Services.AddSingleton<Amazon.S3.IAmazonS3>(sp =>
-{
-    var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<StorageOptions>>().Value;
-    var config = new Amazon.S3.AmazonS3Config
-    {
-        ServiceURL = opts.ServiceUrl,
-        ForcePathStyle = opts.ForcePathStyle,
-        UseHttp = opts.ServiceUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-    };
-    var credentials = new Amazon.Runtime.BasicAWSCredentials(opts.AccessKeyId, opts.SecretAccessKey);
-    return new Amazon.S3.AmazonS3Client(credentials, config);
-});
-builder.Services.AddScoped<IStorageService, S3StorageService>();
-builder.Services.AddScoped<IFileStorageService, FileStorageService>();
-builder.Services.AddScoped<CineManagement.Modules.Cinemas.Services.ISeatLayoutService, CineManagement.Modules.Cinemas.Services.SeatLayoutService>();
-builder.Services.AddScoped<IBookingService, BookingService>();
-builder.Services.AddScoped<IPaymentService, PaymentService>();
+// ── Modular Monolith Services ─────────────────────────────────────────────
+builder.Services.AddSharedModule(builder.Configuration);
+builder.Services.AddCinemasModule();
+builder.Services.AddCatalogModule();
+builder.Services.AddTicketingModule();
+builder.Services.AddOrderingModule();
+builder.Services.AddPaymentsModule();
+
+// ── Cross-Cutting Support Services ─────────────────────────────────────────
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection(SmtpOptions.SectionName));
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddSingleton<IQrCodeService, QrCodeService>();
 builder.Services.AddScoped<IReportService, ReportService>();
-builder.Services.AddSingleton<CineManagement.Common.Events.IEventBus, CineManagement.Common.Events.InMemoryEventBus>();
-builder.Services.AddHostedService<SeatHoldTimeoutWorker>();
-builder.Services.AddHostedService<OutboxMessageWorker>();
 
-// ── SignalR & MVC ────────────────────────────────────────────────────────────
 builder.Services.AddSignalR();
 builder.Services.AddControllersWithViews();
 

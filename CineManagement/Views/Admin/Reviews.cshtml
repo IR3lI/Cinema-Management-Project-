@@ -2,7 +2,7 @@
 @{
     ViewData["Title"] = "Quản lý Đánh giá & Bình luận";
     Layout = "_AdminLayout";
-    var movies = ViewBag.Movies as List<CineManagement.Models.Movie> ?? new List<CineManagement.Models.Movie>();
+    var movies = ViewBag.Movies as List<Movie> ?? new List<Movie>();
     var selectedMovieId = ViewBag.MovieId as int?;
     var selectedRating = ViewBag.Rating as int?;
     var selectedStatus = ViewBag.Status as ReviewStatus?;

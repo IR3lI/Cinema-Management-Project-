@@ -2,9 +2,9 @@
 @{
     ViewData["Title"] = "Quầy Vé POS & Soát Vé QR";
     Layout = "_AdminLayout";
-    var cinemas = ViewBag.Cinemas as List<CineManagement.Models.Cinema> ?? new();
-    var availableFoodItems = ViewBag.AvailableFoodItems as List<CineManagement.Models.FoodItem> ?? new();
-    var sampleBookings = ViewBag.SampleBookings as List<CineManagement.Models.Booking> ?? new();
+    var cinemas = ViewBag.Cinemas as List<Cinema> ?? new();
+    var availableFoodItems = ViewBag.AvailableFoodItems as List<FoodItem> ?? new();
+    var sampleBookings = ViewBag.SampleBookings as List<Booking> ?? new();
     var staffName = ViewBag.StaffName as string ?? User.Identity?.Name ?? "Nhân viên quầy";
 }
 
