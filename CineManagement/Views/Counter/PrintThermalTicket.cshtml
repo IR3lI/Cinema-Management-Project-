@@ -1,0 +1,373 @@
+@model Booking
+@{
+    Layout = null;
+    var cinema = Model.Showtime?.Room?.Cinema;
+    var movie = Model.Showtime?.Movie;
+    var room = Model.Showtime?.Room;
+    var staffName = Model.Tickets.FirstOrDefault(t => t.PrintedBy != null)?.PrintedBy?.FullName 
+                    ?? Model.Tickets.FirstOrDefault(t => t.PrintedBy != null)?.PrintedBy?.Email 
+                    ?? User.Identity?.Name ?? "Nhân viên quầy";
+    var printTimeStr = Model.Tickets.FirstOrDefault(t => t.PrintedAt.HasValue)?.PrintedAt?.ToLocalTime().ToString("HH:mm:ss dd/MM/yyyy")
+                       ?? DateTime.Now.ToString("HH:mm:ss dd/MM/yyyy");
+    var thermalCode = Model.Tickets.FirstOrDefault(t => !string.IsNullOrEmpty(t.ThermalReceiptCode))?.ThermalReceiptCode 
+                      ?? $"POS80-{DateTime.Now:yyyyMMdd}-{Model.BookingId:D4}";
+}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>In Vé Nhiệt 80mm - @Model.BookingCode</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background-color: #f1f5f9;
+            font-family: 'Consolas', 'Courier New', Courier, monospace;
+            color: #000;
+            font-size: 13px;
+            line-height: 1.35;
+        }
+
+        /* Thanh công cụ xem trước */
+        .preview-toolbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #1e293b;
+            color: #fff;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+            z-index: 9999;
+        }
+        .btn-print {
+            background: #10b981;
+            color: #fff;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-print:hover { background: #059669; }
+        .btn-close {
+            background: #475569;
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 8px;
+        }
+
+        /* Container mô phỏng cuộn giấy nhiệt 80mm */
+        .ticket-wrapper {
+            margin: 60px auto 40px auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .receipt-80mm {
+            width: 80mm;
+            min-height: 120mm;
+            background: #fff;
+            padding: 6mm 4mm;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            border-radius: 2px;
+            position: relative;
+        }
+
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-bold { font-weight: bold; }
+        .text-sm { font-size: 11px; }
+        .text-xs { font-size: 10px; }
+
+        .brand-title {
+            font-size: 16px;
+            font-weight: 900;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .branch-title {
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: 2px;
+        }
+
+        .divider {
+            border-top: 1px dashed #000;
+            margin: 6px 0;
+        }
+        .divider-double {
+            border-top: 2px solid #000;
+            margin: 8px 0;
+        }
+
+        .ticket-badge {
+            display: inline-block;
+            border: 1px solid #000;
+            padding: 2px 8px;
+            font-size: 12px;
+            font-weight: bold;
+            margin: 4px 0;
+            text-transform: uppercase;
+        }
+
+        .seat-highlight-box {
+            border: 2px solid #000;
+            padding: 8px 4px;
+            margin: 8px 0;
+            text-align: center;
+            background: #f8fafc;
+        }
+        .seat-big-label {
+            font-size: 32px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            display: block;
+            line-height: 1.1;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+        }
+        .info-row span:first-child {
+            color: #333;
+        }
+
+        .barcode-box {
+            text-align: center;
+            margin: 8px 0 4px 0;
+            font-family: 'Courier New', Courier, monospace;
+            letter-spacing: 4px;
+            font-weight: bold;
+            font-size: 15px;
+        }
+
+        /* In ấn Khổ 80mm */
+        @@media print {
+            body {
+                background: #fff;
+            }
+            .preview-toolbar {
+                display: none !important;
+            }
+            .ticket-wrapper {
+                margin: 0 !important;
+                gap: 0 !important;
+            }
+            .receipt-80mm {
+                width: 78mm !important;
+                box-shadow: none !important;
+                padding: 3mm 2mm !important;
+                margin: 0 !important;
+                page-break-after: always;
+            }
+            @@page {
+                size: 80mm auto;
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Toolbar xem trước và nút in -->
+    <div class="preview-toolbar">
+        <div>
+            <strong>Mẫu In Vé Nhiệt 80mm</strong> | Đơn: @Model.BookingCode | @(Model.Tickets.Count) vé xem phim @(Model.BookingConcessions.Any() ? "+ 1 Phiếu Bắp Nước" : "")
+        </div>
+        <div>
+            <button class="btn-print" onclick="window.print()">🖨️ In Vé Ngay (Print)</button>
+            <button class="btn-close" onclick="window.close()">Đóng cửa sổ</button>
+        </div>
+    </div>
+
+    <div class="ticket-wrapper">
+        <!-- ── 1. IN TỪNG PHIẾU VÉ XEM PHIM CHO MỖI GHẾ ── -->
+        @foreach (var ticket in Model.Tickets)
+        {
+            <div class="receipt-80mm">
+                <div class="text-center">
+                    <div class="brand-title">CINESTAR CINEMAS</div>
+                    <div class="branch-title">@(cinema?.Name ?? "CineStar Quốc Thanh")</div>
+                    <div class="text-xs">@(cinema?.Address ?? "271 Nguyễn Trãi, Q.1, TP.HCM")</div>
+                    <div class="text-xs">Hotline: @(cinema?.Hotline ?? "1900 6017")</div>
+                    <div class="divider"></div>
+                    <div class="ticket-badge">VÉ XEM PHIM (CINEMA TICKET)</div>
+                </div>
+
+                <div class="divider"></div>
+
+                <div style="margin: 4px 0;">
+                    <div class="text-bold" style="font-size: 14px; text-transform: uppercase;">
+                        @(movie?.Title ?? "Phim Chiếu Rạp")
+                    </div>
+                    <div class="text-xs text-bold" style="margin-top: 2px;">
+                        Định dạng: @(movie?.Format ?? "2D") | Độ tuổi: @(movie?.AgeRating ?? "P")
+                    </div>
+                    <div class="text-xs">
+                        Ngôn ngữ: @(movie?.SubtitleType ?? movie?.Language ?? "Phụ đề Tiếng Việt")
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <div class="info-row">
+                    <span>Suất chiếu:</span>
+                    <span class="text-bold">@(Model.Showtime?.StartTime.ToString("HH:mm - dd/MM/yyyy") ?? "")</span>
+                </div>
+                <div class="info-row">
+                    <span>Phòng chiếu:</span>
+                    <span class="text-bold">@(room?.RoomName ?? "Phòng 01")</span>
+                </div>
+
+                <!-- Ô làm nổi bật Ghế ngồi chữ to -->
+                <div class="seat-highlight-box">
+                    <div class="text-xs text-bold">SỐ GHẾ / SEAT NO.</div>
+                    <div class="seat-big-label">@ticket.SeatCode</div>
+                    <div class="text-xs">Loại: @(ticket.Seat?.SeatType?.Name ?? "Thường")</div>
+                </div>
+
+                <div class="info-row">
+                    <span>Giá vé:</span>
+                    <span class="text-bold">@ticket.UnitPrice.ToString("N0") VNĐ</span>
+                </div>
+                <div class="info-row">
+                    <span>Mã đơn (Booking):</span>
+                    <span class="text-bold">@Model.BookingCode</span>
+                </div>
+                <div class="info-row">
+                    <span>Mã vé (Ticket ID):</span>
+                    <span class="text-bold">@ticket.TicketCode</span>
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- Giả lập Mã vạch Scanner -->
+                <div class="barcode-box">
+                    *@ticket.TicketCode*
+                </div>
+
+                <div class="info-row text-xs">
+                    <span>Mã phiếu nhiệt:</span>
+                    <span>@(ticket.ThermalReceiptCode ?? thermalCode)</span>
+                </div>
+                <div class="info-row text-xs">
+                    <span>Nhân viên in:</span>
+                    <span>@staffName</span>
+                </div>
+                <div class="info-row text-xs">
+                    <span>Giờ in vé:</span>
+                    <span>@printTimeStr</span>
+                </div>
+
+                <div class="divider"></div>
+
+                <div class="text-center text-xs" style="font-style: italic; margin-top: 4px;">
+                    * Vé chỉ có giá trị cho 01 người / 01 lần vào rạp.<br />
+                    Vui lòng giữ vé suốt thời gian xem phim.
+                </div>
+            </div>
+        }
+
+        <!-- ── 2. NẾU CÓ BẮP NƯỚC (F&B) -> IN THÊM PHIẾU NHẬN BẮP NƯỚC (VOUCHER) ── -->
+        @if (Model.BookingConcessions != null && Model.BookingConcessions.Any())
+        {
+            <div class="receipt-80mm">
+                <div class="text-center">
+                    <div class="brand-title">CINESTAR CINEMAS</div>
+                    <div class="branch-title">@(cinema?.Name ?? "CineStar Quốc Thanh")</div>
+                    <div class="divider"></div>
+                    <div class="ticket-badge" style="border-width: 2px; padding: 4px 10px; font-size: 13px;">
+                        🍿 PHIẾU GIAO BẮP NƯỚC (F&B VOUCHER)
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <div class="info-row">
+                    <span>Mã đơn:</span>
+                    <span class="text-bold">@Model.BookingCode</span>
+                </div>
+                <div class="info-row">
+                    <span>Khách hàng:</span>
+                    <span class="text-bold">@(Model.User?.FullName ?? Model.ContactEmail ?? "Khách quầy")</span>
+                </div>
+                <div class="info-row">
+                    <span>Suất chiếu:</span>
+                    <span>@(Model.Showtime?.StartTime.ToString("HH:mm - dd/MM") ?? "")</span>
+                </div>
+
+                <div class="divider-double"></div>
+
+                <div class="text-bold" style="margin-bottom: 6px;">DANH SÁCH MÓN ĐÃ MUA:</div>
+                @foreach (var fnb in Model.BookingConcessions)
+                {
+                    <div class="info-row" style="margin-bottom: 4px;">
+                        <span>@(fnb.ItemName ?? fnb.FoodItem?.Name ?? "Combo Bắp Nước") x @fnb.Quantity</span>
+                        <span class="text-bold">@((fnb.UnitPrice * fnb.Quantity).ToString("N0")) đ</span>
+                    </div>
+                }
+
+                <div class="divider-double"></div>
+
+                <div class="info-row" style="font-size: 14px;">
+                    <span class="text-bold">TỔNG TIỀN F&B:</span>
+                    <span class="text-bold" style="font-size: 15px;">@Model.FnBAmount.ToString("N0") VNĐ</span>
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- Mã nhận đồ -->
+                <div class="barcode-box">
+                    *FNB-@Model.BookingCode*
+                </div>
+
+                <div class="info-row text-xs">
+                    <span>Mã phiếu:</span>
+                    <span>@thermalCode</span>
+                </div>
+                <div class="info-row text-xs">
+                    <span>Thu ngân quầy:</span>
+                    <span>@staffName</span>
+                </div>
+                <div class="info-row text-xs">
+                    <span>Giờ in:</span>
+                    <span>@printTimeStr</span>
+                </div>
+
+                <div class="divider"></div>
+
+                <div class="text-center text-xs" style="font-style: italic; margin-top: 6px;">
+                    👉 <strong>Vui lòng mang phiếu này đến Quầy Bắp Nước để nhận đồ trước khi vào rạp!</strong><br />
+                    Phiếu có giá trị xuất món 01 lần trong ngày chiếu.
+                </div>
+            </div>
+        }
+    </div>
+
+    <script>
+        // Tự động kích hoạt hộp thoại in khi trang load xong
+        window.addEventListener('load', function () {
+            setTimeout(function () {
+                window.print();
+            }, 600);
+        });
+    </script>
+</body>
+</html>

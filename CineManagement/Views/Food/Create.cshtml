@@ -1,0 +1,78 @@
+@model FoodFormViewModel
+@{
+    bool isEdit = Model.FoodItemId != 0;
+    ViewData["Title"] = isEdit ? "Chỉnh sửa món F&B" : "Thêm món F&B mới";
+    Layout = "_AdminLayout";
+}
+
+<div class="table-container" style="max-width:650px">
+    <div class="d-flex align-items-center mb-4">
+        <a asp-action="Index" class="btn btn-outline-secondary btn-sm me-3"><i class="bi bi-arrow-left"></i></a>
+        <h5 class="fw-bold mb-0">
+            <i class="bi @(isEdit ? "bi-pencil-square text-primary" : "bi-plus-circle text-warning") me-2"></i>
+            @ViewData["Title"]
+        </h5>
+    </div>
+
+    <form asp-action="@(isEdit ? "Edit" : "Create")" asp-route-id="@Model.FoodItemId" method="post" enctype="multipart/form-data">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        @if (isEdit) { <input type="hidden" asp-for="FoodItemId" /> }
+
+        <div class="mb-3">
+            <label asp-for="Name" class="form-label fw-semibold"></label>
+            <input asp-for="Name" class="form-control" placeholder="VD: Combo Bắp + Nước" />
+            <span asp-validation-for="Name" class="text-danger small"></span>
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <label asp-for="Category" class="form-label fw-semibold"></label>
+                <select asp-for="Category" class="form-select">
+                    <option value="0">Bắp rang (Popcorn)</option>
+                    <option value="1">Đồ uống (Drink)</option>
+                    <option value="2">Combo</option>
+                    <option value="3">Snack</option>
+                    <option value="4">Khác</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Price" class="form-label fw-semibold"></label>
+                <div class="input-group">
+                    <input asp-for="Price" type="number" min="0" step="1000" class="form-control" />
+                    <span class="input-group-text">VNĐ</span>
+                </div>
+                <span asp-validation-for="Price" class="text-danger small"></span>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Description" class="form-label fw-semibold"></label>
+            <textarea asp-for="Description" class="form-control" rows="3" placeholder="Chi tiết món ăn hoặc combo..."></textarea>
+        </div>
+
+        <div class="mb-3">
+            @if (!string.IsNullOrEmpty(Model.ImageUrl))
+            {
+                <div class="mb-2">
+                    <img src="@Model.ImageUrl" alt="Current Image" class="rounded shadow-sm" style="max-height:120px;" />
+                </div>
+            }
+            <label asp-for="ImageFile" class="form-label fw-semibold"></label>
+            <input asp-for="ImageFile" type="file" class="form-control" accept="image/*" />
+        </div>
+
+        <div class="mb-4 form-check">
+            <input asp-for="IsAvailable" class="form-check-input" />
+            <label asp-for="IsAvailable" class="form-check-label fw-semibold">Đang phục vụ</label>
+        </div>
+
+        <button type="submit" class="btn btn-warning fw-bold me-2">
+            <i class="bi bi-save me-1"></i>@(isEdit ? "Lưu thay đổi" : "Thêm món")
+        </button>
+        <a asp-action="Index" class="btn btn-outline-secondary">Hủy</a>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
