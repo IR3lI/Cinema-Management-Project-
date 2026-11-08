@@ -1,0 +1,125 @@
+@model IEnumerable<CineManagement.Modules.Payments.Domain.Voucher>
+@{
+    ViewData["Title"] = "Quản lý Voucher Khuyến Mãi";
+    Layout = "_AdminLayout";
+}
+
+<div class="container-fluid px-0">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2 pb-2 border-bottom">
+        <div>
+            <h4 class="fw-bold mb-1 text-dark">
+                <i class="bi bi-ticket-detailed-fill text-warning me-2"></i>Danh Sách Voucher &amp; Mã Giảm Giá
+            </h4>
+            <p class="text-muted small mb-0">Quản lý các chương trình ưu đãi, giảm giá phần trăm hoặc tiền mặt áp dụng khi đặt vé online &amp; quầy POS</p>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light small text-uppercase fw-semibold text-secondary">
+                    <tr>
+                        <th class="ps-3">Mã Voucher</th>
+                        <th>Mô tả</th>
+                        <th>Loại giảm</th>
+                        <th>Mức giảm</th>
+                        <th>Đơn tối thiểu</th>
+                        <th>Lượt dùng / Giới hạn</th>
+                        <th>Thời hạn</th>
+                        <th>Trạng thái</th>
+                        <th class="text-end pe-3">Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var v in Model)
+                    {
+                        var isExpired = v.ValidTo < DateTime.Today;
+                        <tr>
+                            <td class="ps-3">
+                                <span class="badge bg-warning-subtle text-dark border border-warning font-monospace fs-6 px-2.5 py-1">
+                                    @v.Code
+                                </span>
+                            </td>
+                            <td>
+                                <div class="fw-semibold text-dark">@(v.Description ?? "Ưu đãi khách hàng")</div>
+                            </td>
+                            <td>
+                                @if (v.DiscountType == DiscountType.Percent)
+                                {
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Phần trăm (%)</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle">Cố định (VNĐ)</span>
+                                }
+                            </td>
+                            <td>
+                                @if (v.DiscountType == DiscountType.Percent)
+                                {
+                                    <span class="fw-bold text-danger">-@v.DiscountPercent%</span>
+                                    @if (v.MaxDiscountAmount.HasValue)
+                                    {
+                                        <div class="text-muted text-xs">Tối đa: @v.MaxDiscountAmount.Value.ToString("N0")đ</div>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="fw-bold text-danger">-@v.DiscountAmount.ToString("N0")đ</span>
+                                }
+                            </td>
+                            <td class="font-monospace small">
+                                @(v.MinOrderAmount > 0 ? $"{v.MinOrderAmount:N0}đ" : "Không giới hạn")
+                            </td>
+                            <td>
+                                <div class="font-monospace small">
+                                    <span class="fw-bold text-dark">@v.UsedCount</span>
+                                    <span class="text-muted">/ @(v.UsageLimit.HasValue ? v.UsageLimit.Value.ToString() : "∞")</span>
+                                </div>
+                            </td>
+                            <td class="small">
+                                <div class="text-muted">@v.ValidFrom.ToString("dd/MM/yyyy") ➔ @v.ValidTo.ToString("dd/MM/yyyy")</div>
+                                @if (isExpired)
+                                {
+                                    <span class="badge bg-secondary-subtle text-secondary text-xs">Đã hết hạn</span>
+                                }
+                            </td>
+                            <td>
+                                @if (!v.IsActive)
+                                {
+                                    <span class="badge bg-secondary px-2 py-1">Đã tắt</span>
+                                }
+                                else if (isExpired)
+                                {
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">Hết hạn</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">Hoạt động</span>
+                                }
+                            </td>
+                            <td class="text-end pe-3">
+                                <form asp-action="ToggleVoucher" asp-route-id="@v.VoucherId" method="post" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-sm @(v.IsActive ? "btn-outline-danger" : "btn-outline-success") py-1 px-2.5">
+                                        <i class="bi @(v.IsActive ? "bi-pause-circle" : "bi-play-circle") me-1"></i>
+                                        @(v.IsActive ? "Tắt" : "Bật")
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+
+                    @if (!Model.Any())
+                    {
+                        <tr>
+                            <td colspan="9" class="text-center py-5 text-muted">
+                                <i class="bi bi-ticket-perforated fs-2 text-secondary mb-2 d-block"></i>
+                                Chưa có voucher nào trong hệ thống.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

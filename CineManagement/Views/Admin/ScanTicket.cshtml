@@ -1,0 +1,604 @@
+@{
+    ViewData["Title"] = "Soát vé (QR Scanner)";
+    Layout = "_AdminLayout";
+    var sampleTickets = ViewBag.SampleTickets as dynamic;
+}
+
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-8 col-xl-7">
+        
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+                <h4 class="fw-bold mb-0 text-dark">
+                    <i class="bi bi-qr-code-scan text-success me-2"></i>Soát Vé Vào Rạp (QR Scanner)
+                </h4>
+                <p class="text-muted small mb-0">Quét mã QR từ điện thoại khách hàng hoặc chọn ảnh/nhập mã số vé</p>
+            </div>
+            <span class="badge bg-success-subtle text-success px-3 py-2 rounded-pill fw-bold">
+                <i class="bi bi-person-badge me-1"></i>Nhân viên: @User.Identity?.Name
+            </span>
+        </div>
+
+        <!-- Camera Scanner Card -->
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4 bg-white">
+            <div class="card-header bg-dark text-white p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-camera-video text-success"></i>
+                    <select id="cameraSelect" class="form-select form-select-sm bg-dark text-white border-secondary py-1" style="max-width: 200px; font-size: 0.8rem;">
+                        <option value="">Đang tìm camera...</option>
+                    </select>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" id="btnToggleCam" class="btn btn-success btn-sm py-1 px-3 text-xs fw-semibold">
+                        <i class="bi bi-power me-1"></i>Bật Camera
+                    </button>
+                    <!-- File upload QR scan (Works 100% on all mobile devices & PCs) -->
+                    <button type="button" onclick="document.getElementById('qrFileInput').click()" class="btn btn-outline-light btn-sm py-1 px-2.5 text-xs" title="Tải ảnh QR hoặc chụp ảnh từ máy">
+                        <i class="bi bi-image me-1"></i>Tải/Chụp ảnh
+                    </button>
+                    <input type="file" id="qrFileInput" accept="image/*" class="d-none" />
+                </div>
+            </div>
+
+            <div class="card-body p-0 text-center bg-black position-relative" style="min-height: 290px;">
+                <!-- QR Video Container -->
+                <div id="reader" style="width: 100%; min-height: 290px; margin: 0 auto;"></div>
+
+                <!-- Laser scan animation overlay -->
+                <div id="scanLaser" class="scan-laser d-none"></div>
+
+                <!-- Camera idle placeholder -->
+                <div id="camIdleState" class="py-5 text-white-50">
+                    <i class="bi bi-camera fs-1 mb-2 d-block opacity-50"></i>
+                    <p class="small mb-2">Camera đang tạm dừng</p>
+                    <div class="d-flex justify-content-center gap-2 flex-wrap px-3">
+                        <button type="button" onclick="startScanner()" class="btn btn-sm btn-success rounded-pill px-4 shadow">
+                            <i class="bi bi-camera-fill me-1"></i>Bật Camera quét trực tiếp
+                        </button>
+                        <button type="button" onclick="document.getElementById('qrFileInput').click()" class="btn btn-sm btn-outline-light rounded-pill px-3 shadow">
+                            <i class="bi bi-upload me-1"></i>Tải ảnh mã QR
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-footer bg-light p-3 small text-muted d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span><i class="bi bi-info-circle me-1"></i>Đưa mã QR trên Gmail hoặc màn hình của khách vào trước camera</span>
+                <span id="camStatus" class="fw-semibold text-secondary">Sẵn sàng</span>
+            </div>
+        </div>
+
+        <!-- Scan Result Banner (Dynamic) -->
+        <div id="resultBox" class="d-none mb-4 animate__animated animate__fadeIn">
+            <!-- Rendered by JS -->
+        </div>
+
+        <!-- Quick Test Buttons with sample tickets from database -->
+        @if (sampleTickets != null)
+        {
+            <div class="card border-0 shadow-sm rounded-3 bg-white mb-4">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small fw-bold text-uppercase">
+                            <i class="bi bi-lightning-charge text-warning me-1"></i>Mã vé mẫu để thử nghiệm nhanh (1-Click Test):
+                        </span>
+                        <span class="badge bg-light text-muted border">Dữ liệu thực tế</span>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach (var sample in sampleTickets)
+                        {
+                            <button type="button" onclick="processTicketCode('@sample.TicketCode')"
+                                    class="btn btn-sm btn-outline-secondary py-1 px-2.5 font-monospace text-xs text-dark hover-success">
+                                <i class="bi bi-ticket-perforated text-success me-1"></i>@sample.TicketCode 
+                                <span class="badge bg-light text-secondary ms-1">Ghế @sample.SeatCode</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Manual Input Card -->
+        <div class="card border-0 shadow-sm rounded-3 bg-white mb-4">
+            <div class="card-body p-3">
+                <label class="form-label fw-bold text-dark small mb-2">
+                    <i class="bi bi-keyboard me-1 text-primary"></i>Hoặc nhập mã vé bằng tay:
+                </label>
+                <form id="manualForm" class="d-flex gap-2">
+                    <input type="text" id="manualCodeInput" class="form-control text-uppercase font-monospace"
+                           placeholder="Ví dụ: TCK-123456 hoặc mã đơn BK-..." required />
+                    <button type="submit" id="btnManualSubmit" class="btn btn-primary px-4 fw-semibold text-nowrap">
+                        <i class="bi bi-check-circle me-1"></i>Kiểm tra vé
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Scan History Table -->
+        <div class="card border-0 shadow-sm rounded-3 bg-white">
+            <div class="card-header bg-white border-0 pt-3 px-4 d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold mb-0 text-dark">
+                    <i class="bi bi-clock-history me-1.5 text-secondary"></i>Vé đã soát trong ca làm việc (<span id="scanCount">0</span>)
+                </h6>
+                <button type="button" onclick="clearHistory()" class="btn btn-link btn-sm text-muted text-decoration-none p-0">Xóa lịch sử</button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive" style="max-height: 250px;">
+                    <table class="table table-hover align-middle mb-0 small">
+                        <thead class="table-light text-muted">
+                            <tr>
+                                <th class="ps-3">Thời gian</th>
+                                <th>Mã vé</th>
+                                <th>Ghế</th>
+                                <th>Phim &amp; Phòng</th>
+                                <th class="text-end pe-3">Trạng thái</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                            <tr id="emptyHistoryRow">
+                                <td colspan="5" class="text-center py-3 text-muted">Chưa có vé nào được soát trong ca này.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@section Styles {
+<style>
+    .scan-laser {
+        position: absolute;
+        top: 0; left: 0; right: 0; height: 2px;
+        background: #10b981;
+        box-shadow: 0 0 12px 2px #34d399;
+        animation: scanMove 2.2s infinite ease-in-out;
+        z-index: 10;
+        pointer-events: none;
+    }
+    @@keyframes scanMove {
+        0% { top: 5%; }
+        50% { top: 95%; }
+        100% { top: 5%; }
+    }
+    #reader video {
+        border-radius: 8px;
+        object-fit: cover;
+    }
+    .hover-success:hover {
+        background-color: #ecfdf5 !important;
+        border-color: #059669 !important;
+        color: #065f46 !important;
+    }
+</style>
+}
+
+@section Scripts {
+<!-- Load local html5-qrcode library first with CDN fallback -->
+<script src="/lib/html5-qrcode/html5-qrcode.min.js"></script>
+<script>
+    if (typeof Html5Qrcode === 'undefined') {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js';
+        document.head.appendChild(s);
+    }
+</script>
+
+<script>
+    let html5QrCode = null;
+    let isScanning = false;
+    let isProcessing = false;
+    let availableCameras = [];
+    let selectedCameraId = null;
+
+    // Synthesized Audio Feedback using Web Audio API
+    function playBeep(type = 'success') {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            if (type === 'success') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, ctx.currentTime);
+                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.12);
+
+                setTimeout(() => {
+                    const ctx2 = new (window.AudioContext || window.webkitAudioContext)();
+                    const osc2 = ctx2.createOscillator();
+                    const gain2 = ctx2.createGain();
+                    osc2.connect(gain2);
+                    gain2.connect(ctx2.destination);
+                    osc2.type = 'sine';
+                    osc2.frequency.setValueAtTime(1320, ctx2.currentTime);
+                    gain2.gain.setValueAtTime(0.2, ctx2.currentTime);
+                    osc2.start();
+                    osc2.stop(ctx2.currentTime + 0.18);
+                }, 100);
+            } else {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, ctx.currentTime);
+                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.3);
+            }
+        } catch (e) {
+            console.log('Audio feedback not permitted', e);
+        }
+    }
+
+    async function initCameraDevices() {
+        const select = document.getElementById('cameraSelect');
+        try {
+            if (typeof Html5Qrcode === 'undefined') {
+                setTimeout(initCameraDevices, 300);
+                return;
+            }
+
+            availableCameras = await Html5Qrcode.getCameras();
+            select.innerHTML = '';
+
+            if (availableCameras && availableCameras.length > 0) {
+                availableCameras.forEach((cam, idx) => {
+                    const opt = document.createElement('option');
+                    opt.value = cam.id;
+                    opt.text = cam.label || `Camera ${idx + 1}`;
+                    select.appendChild(opt);
+                });
+
+                // Prefer back camera if found
+                const backCam = availableCameras.find(c => c.label.toLowerCase().includes('back') || c.label.toLowerCase().includes('sau') || c.label.toLowerCase().includes('rear'));
+                if (backCam) {
+                    selectedCameraId = backCam.id;
+                    select.value = backCam.id;
+                } else {
+                    selectedCameraId = availableCameras[0].id;
+                    select.value = availableCameras[0].id;
+                }
+            } else {
+                select.innerHTML = '<option value="">Không tìm thấy camera</option>';
+            }
+        } catch (err) {
+            console.warn('Không thể liệt kê danh sách camera:', err);
+            select.innerHTML = '<option value="">Camera mặc định</option>';
+        }
+    }
+
+    document.getElementById('cameraSelect').addEventListener('change', async (e) => {
+        selectedCameraId = e.target.value;
+        if (isScanning) {
+            await stopScanner();
+            await startScanner();
+        }
+    });
+
+    async function startScanner() {
+        const camIdle = document.getElementById('camIdleState');
+        const laser = document.getElementById('scanLaser');
+        const status = document.getElementById('camStatus');
+
+        try {
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
+
+            camIdle.classList.add('d-none');
+            laser.classList.remove('d-none');
+            status.innerText = 'Đang tìm mã QR...';
+            status.className = 'fw-semibold text-success';
+
+            const config = {
+                fps: 15,
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0
+            };
+
+            // Attempt with selectedCameraId, or fallback to any camera constraint
+            let cameraConfig = selectedCameraId 
+                ? selectedCameraId 
+                : { facingMode: "environment" };
+
+            try {
+                await html5QrCode.start(cameraConfig, config, onScanSuccess, onScanError);
+            } catch (initialErr) {
+                console.warn('Lỗi mở camera ban đầu, thử fallback camera trước/mặc định:', initialErr);
+                // Fallback to user facing mode or true
+                await html5QrCode.start({ facingMode: "user" }, config, onScanSuccess, onScanError);
+            }
+
+            isScanning = true;
+            document.getElementById('btnToggleCam').innerHTML = '<i class="bi bi-power me-1"></i>Tắt Camera';
+            document.getElementById('btnToggleCam').className = 'btn btn-danger btn-sm py-1 px-3 text-xs';
+        } catch (err) {
+            console.error('Không mở được camera:', err);
+            camIdle.classList.remove('d-none');
+            laser.classList.add('d-none');
+            status.innerText = 'Camera bị chặn hoặc chưa cấp quyền. Vui lòng thử nút Tải ảnh QR hoặc nhập tay.';
+            status.className = 'fw-semibold text-danger';
+        }
+    }
+
+    async function stopScanner() {
+        if (html5QrCode && isScanning) {
+            try {
+                await html5QrCode.stop();
+            } catch(e) {}
+            isScanning = false;
+            document.getElementById('camIdleState').classList.remove('d-none');
+            document.getElementById('scanLaser').classList.add('d-none');
+            document.getElementById('camStatus').innerText = 'Camera đã tắt';
+            document.getElementById('camStatus').className = 'fw-semibold text-muted';
+            document.getElementById('btnToggleCam').innerHTML = '<i class="bi bi-power me-1"></i>Bật Camera';
+            document.getElementById('btnToggleCam').className = 'btn btn-success btn-sm py-1 px-3 text-xs';
+        }
+    }
+
+    document.getElementById('btnToggleCam').addEventListener('click', () => {
+        if (isScanning) stopScanner();
+        else startScanner();
+    });
+
+    // File / Photo QR Scanner (Guaranteed to work on all phones over HTTP)
+    document.getElementById('qrFileInput').addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const status = document.getElementById('camStatus');
+        status.innerText = 'Đang phân tích ảnh QR...';
+        status.className = 'fw-semibold text-primary';
+
+        try {
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
+            const decodedText = await html5QrCode.scanFile(file, true);
+            processTicketCode(decodedText);
+        } catch (err) {
+            console.error('Lỗi quét ảnh QR:', err);
+            alert('Không tìm thấy mã QR trong ảnh vừa chọn. Vui lòng chọn ảnh chụp rõ nét hơn.');
+            status.innerText = 'Không phát hiện mã QR trong ảnh.';
+            status.className = 'fw-semibold text-danger';
+        } finally {
+            e.target.value = '';
+        }
+    });
+
+    function onScanSuccess(decodedText) {
+        if (isProcessing) return;
+        isProcessing = true;
+        processTicketCode(decodedText);
+
+        setTimeout(() => {
+            isProcessing = false;
+        }, 2500);
+    }
+
+    function onScanError(errorMessage) {}
+
+    async function processTicketCode(code) {
+        if (!code) return;
+        code = code.trim();
+
+        const resultBox = document.getElementById('resultBox');
+        resultBox.classList.remove('d-none');
+        resultBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        resultBox.innerHTML = `
+            <div class="card border-0 shadow-sm rounded-4 p-4 text-center bg-white">
+                <div class="spinner-border text-success mx-auto mb-2" role="status"></div>
+                <div class="fw-bold">Đang xác thực mã vé: <code>${code}</code>...</div>
+            </div>`;
+
+        try {
+            const response = await fetch('/Admin/ProcessTicketScan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: code })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                playBeep('success');
+                renderSuccessResult(data);
+                addToHistory(data, 'Thành công', 'text-success');
+            } else if (data.alreadyCheckedIn) {
+                playBeep('warning');
+                renderWarningResult(data);
+                addToHistory(data, 'Đã soát trước đó', 'text-warning');
+            } else {
+                playBeep('error');
+                renderErrorResult(data);
+            }
+        } catch (err) {
+            playBeep('error');
+            resultBox.innerHTML = `
+                <div class="alert alert-danger rounded-4 p-3 shadow-sm">
+                    <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+                    <strong>Lỗi kết nối máy chủ:</strong> ${err.message}
+                </div>`;
+        }
+    }
+
+    function renderSuccessResult(data) {
+        const box = document.getElementById('resultBox');
+
+        let seatBadgesHtml = '';
+        if (data.seatDetails && data.seatDetails.length > 0) {
+            seatBadgesHtml = `
+                <div class="d-flex flex-wrap gap-2 justify-content-center mt-2">
+                    ${data.seatDetails.map(s => `
+                        <span class="badge px-3 py-2 fs-6 shadow-sm text-white" style="background-color: ${s.colorCode || '#059669'};">
+                            <i class="bi bi-ticket-detailed me-1"></i>${s.display}
+                        </span>
+                    `).join('')}
+                </div>
+            `;
+        } else {
+            seatBadgesHtml = `<div class="display-6 fw-black text-success mt-1">${data.seatCode.startsWith('Ghế') || data.seatCode.startsWith('GHẾ') ? data.seatCode : 'GHẾ ' + data.seatCode}</div>`;
+        }
+
+        let fnbCardHtml = '';
+        if (data.fnbList && data.fnbList.length > 0) {
+            fnbCardHtml = `
+                <div class="mt-4 p-3 rounded-4 border-2 border-warning bg-warning bg-opacity-10 text-start shadow-sm">
+                    <div class="d-flex align-items-center gap-2 mb-2 pb-2 border-bottom border-warning border-opacity-25">
+                        <span class="fs-3">🍿</span>
+                        <div>
+                            <h6 class="fw-black mb-0 text-dark text-uppercase tracking-wide">
+                                BẮP NƯỚC ĐI KÈM (F&B CONCESSIONS)
+                            </h6>
+                            <small class="text-danger fw-bold"><i class="bi bi-exclamation-circle-fill me-1"></i>Nhân viên vui lòng kiểm tra và trao đủ các phần sau cho khách:</small>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-column gap-2">
+                        ${data.fnbList.map(item => `
+                            <div class="d-flex justify-content-between align-items-center bg-white rounded-3 px-3 py-2 shadow-sm border">
+                                <span class="fw-bold text-dark"><i class="bi bi-check-circle-fill text-success me-2"></i>${item.itemName}</span>
+                                <span class="badge bg-warning text-dark px-3 py-1.5 fs-6 rounded-pill fw-black">× ${item.quantity}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        } else {
+            fnbCardHtml = `
+                <div class="mt-3 p-2.5 rounded-3 bg-light text-muted small text-center border">
+                    <i class="bi bi-cup-straw me-1"></i>Đơn vé này không mua kèm bắp nước.
+                </div>
+            `;
+        }
+
+        box.innerHTML = `
+            <div class="card border-2 border-success shadow-lg rounded-4 overflow-hidden bg-white animate__animated animate__zoomIn">
+                <div class="bg-success text-white p-3 text-center">
+                    <i class="bi bi-check-circle-fill fs-1 d-block mb-1"></i>
+                    <h5 class="fw-black mb-0 text-uppercase tracking-wider">HỢP LỆ – SOÁT VÉ THÀNH CÔNG</h5>
+                    <small class="opacity-90">Cho phép khách vào phòng chiếu</small>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-3 text-center mb-3">
+                        <div class="col-7 border-end">
+                            <span class="text-muted small text-uppercase fw-semibold">VỊ TRÍ GHẾ &amp; LOẠI GHẾ</span>
+                            ${seatBadgesHtml}
+                        </div>
+                        <div class="col-5">
+                            <span class="text-muted small text-uppercase fw-semibold">PHÒNG CHIẾU</span>
+                            <div class="display-6 fw-black text-dark mt-1">${data.roomName}</div>
+                        </div>
+                    </div>
+                    <div class="p-3 bg-light rounded-3 small">
+                        <div class="d-flex justify-content-between mb-1.5">
+                            <span class="text-muted">Phim:</span>
+                            <strong class="text-dark">${data.movieTitle}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1.5">
+                            <span class="text-muted">Suất chiếu:</span>
+                            <strong class="text-dark">${data.startTime}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1.5">
+                            <span class="text-muted">Khách hàng:</span>
+                            <strong class="text-dark">${data.customerName}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">Mã vé / Đơn hàng:</span>
+                            <code class="fw-bold">${data.ticketCode}</code>
+                        </div>
+                    </div>
+
+                    ${fnbCardHtml}
+                </div>
+            </div>`;
+    }
+
+    function renderWarningResult(data) {
+        const box = document.getElementById('resultBox');
+        box.innerHTML = `
+            <div class="card border-2 border-warning shadow-lg rounded-4 overflow-hidden bg-white animate__animated animate__shakeX">
+                <div class="bg-warning text-dark p-3 text-center">
+                    <i class="bi bi-exclamation-triangle-fill fs-1 d-block mb-1"></i>
+                    <h5 class="fw-black mb-0 text-uppercase tracking-wider">CẢNH BÁO: VÉ ĐÃ ĐƯỢC SOÁT TRƯỚC ĐÓ</h5>
+                    <small class="fw-semibold">Thời điểm soát: ${data.checkedInAt}</small>
+                </div>
+                <div class="card-body p-4">
+                    <p class="text-danger fw-bold text-center mb-3">
+                        ⚠️ Khách hàng này có thể đang sử dụng lại vé đã vào cửa. Vui lòng kiểm tra lại!
+                    </p>
+                    <div class="p-3 bg-light rounded-3 small">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">Ghế:</span>
+                            <strong class="text-danger fw-bold">${data.seatCode.startsWith('Ghế') || data.seatCode.startsWith('GHẾ') ? data.seatCode : 'GHẾ ' + data.seatCode} (${data.roomName})</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">Phim:</span>
+                            <strong class="text-dark">${data.movieTitle}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">Khách hàng:</span>
+                            <strong class="text-dark">${data.customerName}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    function renderErrorResult(data) {
+        const box = document.getElementById('resultBox');
+        box.innerHTML = `
+            <div class="card border-2 border-danger shadow-lg rounded-4 overflow-hidden bg-white animate__animated animate__headShake">
+                <div class="bg-danger text-white p-3 text-center">
+                    <i class="bi bi-x-circle-fill fs-1 d-block mb-1"></i>
+                    <h5 class="fw-black mb-0 text-uppercase tracking-wider">VÉ KHÔNG HỢP LỆ</h5>
+                    <small class="opacity-90">${data.message}</small>
+                </div>
+            </div>`;
+    }
+
+    function addToHistory(data, statusText, colorClass) {
+        const tbody = document.getElementById('historyTableBody');
+        const emptyRow = document.getElementById('emptyHistoryRow');
+        if (emptyRow) emptyRow.remove();
+
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="ps-3 text-muted">${timeStr}</td>
+            <td><code>${data.ticketCode}</code></td>
+            <td><strong class="badge bg-light text-dark border">GHẾ ${data.seatCode || '–'}</strong></td>
+            <td><div class="text-truncate" style="max-width:160px;">${data.movieTitle || '–'}</div><small class="text-muted">${data.roomName || ''}</small></td>
+            <td class="text-end pe-3"><span class="fw-bold ${colorClass}">${statusText}</span></td>`;
+        tbody.prepend(row);
+
+        const countEl = document.getElementById('scanCount');
+        countEl.innerText = parseInt(countEl.innerText || 0) + 1;
+    }
+
+    function clearHistory() {
+        document.getElementById('historyTableBody').innerHTML = `
+            <tr id="emptyHistoryRow">
+                <td colspan="5" class="text-center py-3 text-muted">Chưa có vé nào được soát trong ca này.</td>
+            </tr>`;
+        document.getElementById('scanCount').innerText = '0';
+    }
+
+    document.getElementById('manualForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const code = document.getElementById('manualCodeInput').value.trim();
+        if (code) {
+            processTicketCode(code);
+            document.getElementById('manualCodeInput').value = '';
+        }
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+        initCameraDevices();
+    });
+</script>
+}

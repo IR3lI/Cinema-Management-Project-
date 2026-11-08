@@ -1,0 +1,243 @@
+@model IEnumerable<CineManagement.Modules.Payments.Domain.OutboxMessage>
+@{
+    ViewData["Title"] = "Giám sát Hàng đợi Outbox";
+    Layout = "_AdminLayout";
+    var currentStatus = ViewBag.Status as string ?? "";
+    var currentSearch = ViewBag.Search as string ?? "";
+}
+
+<div class="container-fluid px-0">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2 pb-2 border-bottom">
+        <div>
+            <h4 class="fw-bold mb-1 text-dark">
+                <i class="bi bi-envelope-paper text-primary me-2"></i>Giám Sát Hàng Đợi Email Outbox (CLO1)
+            </h4>
+            <p class="text-muted small mb-0">
+                Thực thi mẫu thiết kế <strong>Transactional Outbox Pattern</strong>: Đảm bảo độ tin cậy gửi email vé QR At-Least-Once Delivery mà không làm chậm luồng thanh toán.
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a asp-action="Outbox" class="btn btn-outline-secondary btn-sm px-3 fw-semibold">
+                <i class="bi bi-arrow-clockwise me-1"></i>Làm mới
+            </a>
+        </div>
+    </div>
+
+    <!-- Metric Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white">
+                <span class="text-muted small fw-semibold text-uppercase">Tổng số thông điệp</span>
+                <div class="d-flex align-items-baseline gap-2 mt-1">
+                    <span class="fs-3 fw-bold text-dark">@ViewBag.TotalCount</span>
+                    <span class="text-muted small">sự kiện</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white">
+                <span class="text-warning small fw-semibold text-uppercase">Đang chờ xử lý (Pending)</span>
+                <div class="d-flex align-items-baseline gap-2 mt-1">
+                    <span class="fs-3 fw-bold text-warning">@ViewBag.PendingCount</span>
+                    <span class="text-muted small">đang đợi worker</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white">
+                <span class="text-success small fw-semibold text-uppercase">Đã gửi thành công (Processed)</span>
+                <div class="d-flex align-items-baseline gap-2 mt-1">
+                    <span class="fs-3 fw-bold text-success">@ViewBag.ProcessedCount</span>
+                    <span class="text-muted small">đã nhận mail</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white">
+                <span class="text-danger small fw-semibold text-uppercase">Thất bại / Cần retry (Failed)</span>
+                <div class="d-flex align-items-baseline gap-2 mt-1">
+                    <span class="fs-3 fw-bold text-danger">@ViewBag.FailedCount</span>
+                    <span class="text-muted small">vượt quá max retries</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter & Search Bar -->
+    <div class="card border-0 shadow-sm rounded-4 bg-white p-3 mb-4">
+        <form method="get" asp-action="Outbox" class="row g-3 align-items-center">
+            <div class="col-12 col-md-auto">
+                <div class="btn-group btn-group-sm" role="group">
+                    <a asp-action="Outbox" asp-route-status="" asp-route-search="@currentSearch"
+                       class="btn @(string.IsNullOrEmpty(currentStatus) ? "btn-dark" : "btn-outline-secondary")">Tất cả</a>
+                    <a asp-action="Outbox" asp-route-status="pending" asp-route-search="@currentSearch"
+                       class="btn @(currentStatus == "pending" ? "btn-warning" : "btn-outline-secondary")">Pending</a>
+                    <a asp-action="Outbox" asp-route-status="processed" asp-route-search="@currentSearch"
+                       class="btn @(currentStatus == "processed" ? "btn-success" : "btn-outline-secondary")">Processed</a>
+                    <a asp-action="Outbox" asp-route-status="failed" asp-route-search="@currentSearch"
+                       class="btn @(currentStatus == "failed" ? "btn-danger" : "btn-outline-secondary")">Failed</a>
+                </div>
+            </div>
+
+            <div class="col-12 col-md">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-light"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" name="search" value="@currentSearch" class="form-control" placeholder="Tìm theo loại sự kiện hoặc nội dung payload..." />
+                    <input type="hidden" name="status" value="@currentStatus" />
+                    <button type="submit" class="btn btn-primary px-3">Lọc</button>
+                    @if (!string.IsNullOrEmpty(currentStatus) || !string.IsNullOrEmpty(currentSearch))
+                    {
+                        <a asp-action="Outbox" class="btn btn-outline-secondary">Xóa lọc</a>
+                    }
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Messages Table -->
+    <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light small text-uppercase fw-semibold text-secondary">
+                    <tr>
+                        <th class="ps-3" style="width: 70px;">ID</th>
+                        <th>Loại sự kiện</th>
+                        <th>Nội dung Payload (JSON)</th>
+                        <th>Thời điểm tạo (UTC)</th>
+                        <th>Xử lý lúc</th>
+                        <th>Thử lại</th>
+                        <th>Trạng thái</th>
+                        <th class="text-end pe-3">Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var msg in Model)
+                    {
+                        var isProcessed = msg.ProcessedAt != null;
+                        var isFailed = !isProcessed && msg.RetryCount >= msg.MaxRetries;
+                        var isPending = !isProcessed && msg.RetryCount < msg.MaxRetries;
+
+                        <tr>
+                            <td class="ps-3 font-monospace fw-bold text-muted">#@msg.Id</td>
+                            <td>
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace">
+                                    <i class="bi bi-lightning-charge me-1"></i>@msg.Type
+                                </span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <code class="text-truncate d-inline-block small" style="max-width: 280px;" title="@msg.Payload">
+                                        @msg.Payload
+                                    </code>
+                                    <button type="button" class="btn btn-link btn-sm text-secondary p-0"
+                                            onclick="showPayloadModal(@msg.Id, '@msg.Type', @Html.Raw(System.Text.Json.JsonSerializer.Serialize(msg.Payload)))"
+                                            title="Xem toàn bộ JSON">
+                                        <i class="bi bi-arrows-angle-expand"></i>
+                                    </button>
+                                </div>
+                                @if (!string.IsNullOrEmpty(msg.LastError))
+                                {
+                                    <div class="text-danger small mt-1 text-truncate" style="max-width: 320px;" title="@msg.LastError">
+                                        <i class="bi bi-exclamation-triangle-fill me-1"></i>@msg.LastError
+                                    </div>
+                                }
+                            </td>
+                            <td class="small text-muted font-monospace">
+                                @msg.CreatedAt.ToString("dd/MM/yyyy HH:mm:ss")
+                            </td>
+                            <td class="small text-muted font-monospace">
+                                @(msg.ProcessedAt.HasValue ? msg.ProcessedAt.Value.ToString("dd/MM/yyyy HH:mm:ss") : "–")
+                            </td>
+                            <td>
+                                <span class="small font-monospace @(msg.RetryCount > 0 ? "text-danger fw-bold" : "text-muted")">
+                                    @msg.RetryCount / @msg.MaxRetries
+                                </span>
+                            </td>
+                            <td>
+                                @if (isProcessed)
+                                {
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill">
+                                        <i class="bi bi-check-circle me-1"></i>Processed
+                                    </span>
+                                }
+                                else if (isFailed)
+                                {
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 rounded-pill">
+                                        <i class="bi bi-x-circle me-1"></i>Failed
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2.5 py-1 rounded-pill">
+                                        <i class="bi bi-clock me-1"></i>Pending
+                                    </span>
+                                }
+                            </td>
+                            <td class="text-end pe-3">
+                                @if (!isProcessed)
+                                {
+                                    <form asp-action="RetryOutbox" asp-route-id="@msg.Id" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-outline-warning btn-sm py-1 px-2.5 fw-semibold" title="Reset về Pending để Worker xử lý ngay">
+                                            <i class="bi bi-arrow-repeat me-1"></i>Thử lại
+                                        </button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small"><i class="bi bi-check2-all text-success"></i> Đã xong</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+
+                    @if (!Model.Any())
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-2 text-secondary mb-2 d-block"></i>
+                                Không có thông điệp Outbox nào trong danh sách.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal xem JSON Payload chi tiết -->
+<div class="modal fade" id="payloadModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header bg-dark text-white rounded-top-4">
+                <h6 class="modal-title fw-bold" id="payloadModalTitle">
+                    <i class="bi bi-code-square me-2 text-warning"></i>Chi Tiết Payload JSON
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 bg-light">
+                <pre class="bg-dark text-light p-3 rounded-3 font-monospace small mb-0" style="max-height: 400px; overflow-y: auto;" id="payloadModalContent"></pre>
+            </div>
+            <div class="modal-footer bg-white rounded-bottom-4">
+                <button type="button" class="btn btn-secondary btn-sm px-3" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function showPayloadModal(id, type, payload) {
+            document.getElementById('payloadModalTitle').innerHTML = `<i class="bi bi-code-square me-2 text-warning"></i>Outbox #${id} – [${type}]`;
+            try {
+                const parsed = JSON.parse(payload);
+                document.getElementById('payloadModalContent').textContent = JSON.stringify(parsed, null, 2);
+            } catch {
+                document.getElementById('payloadModalContent').textContent = payload;
+            }
+            new bootstrap.Modal(document.getElementById('payloadModal')).show();
+        }
+    </script>
+}

@@ -1,0 +1,685 @@
+@model CineManagement.DTOs.DetailedAnalyticsDto
+@{
+    ViewData["Title"] = "Báo cáo & Thống kê Doanh thu";
+    Layout = "_AdminLayout";
+    var period = ViewBag.Period as string ?? "all";
+    var fromDateStr = ViewBag.FromDate != null ? ((DateTime)ViewBag.FromDate).ToString("yyyy-MM-dd") : "";
+    var toDateStr = ViewBag.ToDate != null ? ((DateTime)ViewBag.ToDate).ToString("yyyy-MM-dd") : "";
+    var cinemas = ViewBag.Cinemas as List<Cinema> ?? new List<Cinema>();
+    var selectedCinemaId = ViewBag.CinemaId as int?;
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <div>
+        <h4 class="fw-bold mb-1 text-dark">
+            <i class="bi bi-graph-up-arrow text-success me-2"></i>Báo Cáo &amp; Thống Kê Doanh Thu Chuỗi Rạp
+        </h4>
+        <p class="text-muted small mb-0">
+            Phân tích chuyên sâu doanh thu vé phim, combo bắp nước F&amp;B, in nhiệt 80mm &amp; tỷ lệ lấp đầy theo từng cụm rạp
+            @if (!string.IsNullOrEmpty(Model.CinemaName))
+            {
+                <span class="badge bg-warning-subtle text-dark border border-warning ms-1">
+                    <i class="bi bi-buildings me-1"></i>@Model.CinemaName
+                </span>
+            }
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <button onclick="window.print()" class="btn btn-outline-secondary btn-sm shadow-sm">
+            <i class="bi bi-printer me-1"></i>In báo cáo
+        </button>
+    </div>
+</div>
+
+<!-- Date & Branch filter toolbar -->
+<div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
+    <div class="card-body p-3">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <!-- Quick filters -->
+            <div class="btn-group btn-group-sm" role="group">
+                <a asp-action="Reports" asp-route-period="all" asp-route-cinemaId="@selectedCinemaId"
+                   class="btn @(period == "all" ? "btn-success" : "btn-outline-secondary")">Tất cả</a>
+                <a asp-action="Reports" asp-route-period="today" asp-route-cinemaId="@selectedCinemaId"
+                   class="btn @(period == "today" ? "btn-success" : "btn-outline-secondary")">Hôm nay</a>
+                <a asp-action="Reports" asp-route-period="7days" asp-route-cinemaId="@selectedCinemaId"
+                   class="btn @(period == "7days" ? "btn-success" : "btn-outline-secondary")">7 ngày qua</a>
+                <a asp-action="Reports" asp-route-period="30days" asp-route-cinemaId="@selectedCinemaId"
+                   class="btn @(period == "30days" ? "btn-success" : "btn-outline-secondary")">30 ngày qua</a>
+                <a asp-action="Reports" asp-route-period="thismonth" asp-route-cinemaId="@selectedCinemaId"
+                   class="btn @(period == "thismonth" ? "btn-success" : "btn-outline-secondary")">Tháng này</a>
+            </div>
+
+            <!-- Custom date range & Cinema selector -->
+            <form method="get" asp-action="Reports" class="d-flex align-items-center gap-2 flex-wrap">
+                <div class="input-group input-group-sm" style="width: auto;">
+                    <span class="input-group-text bg-light text-muted"><i class="bi bi-buildings text-warning me-1"></i>Cụm rạp</span>
+                    <select name="cinemaId" class="form-select">
+                        <option value="">🏢 Tất cả cụm rạp</option>
+                        @foreach (var c in cinemas)
+                        {
+                            <!option value="@c.CinemaId" @(selectedCinemaId == c.CinemaId ? "selected" : "")>
+                                @c.Name (@c.City)
+                            </!option>
+                        }
+                    </select>
+                </div>
+
+                <div class="input-group input-group-sm" style="width: auto;">
+                    <span class="input-group-text bg-light text-muted">Từ</span>
+                    <input type="date" name="fromDate" value="@fromDateStr" class="form-control" />
+                </div>
+                <div class="input-group input-group-sm" style="width: auto;">
+                    <span class="input-group-text bg-light text-muted">Đến</span>
+                    <input type="date" name="toDate" value="@toDateStr" class="form-control" />
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm px-3 shadow-sm">
+                    <i class="bi bi-filter me-1"></i>Lọc
+                </button>
+                @if (selectedCinemaId.HasValue || !string.IsNullOrEmpty(fromDateStr) || !string.IsNullOrEmpty(toDateStr))
+                {
+                    <a asp-action="Reports" class="btn btn-outline-secondary btn-sm" title="Xóa bộ lọc">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </a>
+                }
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Key Metric Indicators (KPIs: Vé, Bắp nước kèm POS Upsell, Vé in nhiệt 80mm, Tỷ lệ lấp đầy %) -->
+<div class="row g-3 mb-4">
+    <!-- 1. Total Revenue -->
+    <div class="col-12 col-sm-6 col-xl-4 col-xxl-2">
+        <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted small fw-semibold text-uppercase">Tổng Doanh Thu</span>
+                    <div class="bg-success-subtle text-success p-2 rounded-2">
+                        <i class="bi bi-cash-coin fs-5"></i>
+                    </div>
+                </div>
+                <h4 class="fw-bold mb-1 text-dark">@Model.TotalRevenue.ToString("N0") đ</h4>
+                <div class="small text-muted">
+                    Sau chiết khấu: <span class="text-danger">-@Model.TotalDiscount.ToString("N0") đ</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Ticket Revenue -->
+    <div class="col-12 col-sm-6 col-xl-4 col-xxl-2">
+        <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted small fw-semibold text-uppercase">Doanh Thu Vé Phim</span>
+                    <div class="bg-primary-subtle text-primary p-2 rounded-2">
+                        <i class="bi bi-ticket-perforated fs-5"></i>
+                    </div>
+                </div>
+                <h4 class="fw-bold mb-1 text-primary">@Model.TotalTicketRevenue.ToString("N0") đ</h4>
+                <div class="small text-muted">
+                    Đã xuất: <strong class="text-dark">@Model.TotalTicketsSold</strong> vé
+                    @if (Model.TotalRevenue > 0)
+                    {
+                        <span class="badge bg-light text-primary border ms-1">
+                            @(Math.Round((Model.TotalTicketRevenue / Model.TotalRevenue) * 100, 1))%
+                        </span>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. FnB Revenue (Combo Bắp Nước & POS Upsell) -->
+    <div class="col-12 col-sm-6 col-xl-4 col-xxl-3">
+        <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted small fw-semibold text-uppercase">Bắp Nước F&amp;B (POS Upsell)</span>
+                    <div class="bg-warning-subtle text-warning p-2 rounded-2">
+                        <i class="bi bi-cup-straw fs-5"></i>
+                    </div>
+                </div>
+                <h4 class="fw-bold mb-1 text-dark">@Model.TotalFnBRevenue.ToString("N0") đ</h4>
+                <div class="small text-muted">
+                    Quầy POS Upsell: <strong class="text-success">@Model.PosFnBUpsellRevenue.ToString("N0") đ</strong>
+                    @if (Model.TotalRevenue > 0)
+                    {
+                        <span class="badge bg-warning-subtle text-dark border ms-1">
+                            @(Math.Round((Model.TotalFnBRevenue / Model.TotalRevenue) * 100, 1))%
+                        </span>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Thermal Printed Tickets 80mm -->
+    <div class="col-12 col-sm-6 col-xl-6 col-xxl-2">
+        <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted small fw-semibold text-uppercase">Vé In Nhiệt 80mm</span>
+                    <div class="bg-success-subtle text-success p-2 rounded-2">
+                        <i class="bi bi-printer-fill fs-5"></i>
+                    </div>
+                </div>
+                <h4 class="fw-bold mb-1 text-success">@Model.TotalPrintedTickets <small class="fs-6 text-muted">vé</small></h4>
+                <div class="small text-muted">
+                    Tỷ lệ in: <strong class="text-dark">@(Model.TotalTicketsSold > 0 ? Math.Round((decimal)Model.TotalPrintedTickets / Model.TotalTicketsSold * 100, 1) : 0)%</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Average Occupancy Rate (%) -->
+    <div class="col-12 col-sm-6 col-xl-6 col-xxl-3">
+        <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted small fw-semibold text-uppercase">Tỷ Lệ Lấp Đầy Phòng Chiếu</span>
+                    <div class="bg-info-subtle text-info p-2 rounded-2">
+                        <i class="bi bi-pie-chart-fill fs-5"></i>
+                    </div>
+                </div>
+                <h4 class="fw-bold mb-1 text-info">@Model.AverageOccupancyRate%</h4>
+                <div class="progress mt-2" style="height: 6px;">
+                    <div class="progress-bar bg-info progress-bar-striped progress-bar-animated" role="progressbar" style="width: @Math.Min(100, Model.AverageOccupancyRate)%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Champion Movie Spotlight (Doanh thu phim nào cao nhất) -->
+@if (Model.HighestGrossingMovie != null && Model.HighestGrossingMovie.TicketRevenue > 0)
+{
+    var champ = Model.HighestGrossingMovie;
+    <div class="card border-0 shadow-sm rounded-4 mb-4 text-white overflow-hidden" 
+         style="background: linear-gradient(135deg, #064e3b 0%, #047857 50%, #059669 100%);">
+        <div class="card-body p-4 position-relative">
+            <div class="row align-items-center g-4">
+                <div class="col-auto">
+                    @if (!string.IsNullOrEmpty(champ.PosterUrl))
+                    {
+                        <img src="@champ.PosterUrl" alt="@champ.MovieTitle" 
+                             class="rounded-3 shadow-lg border border-2 border-warning"
+                             style="width: 100px; height: 145px; object-fit: cover;" />
+                    }
+                    else
+                    {
+                        <div class="bg-dark rounded-3 d-flex align-items-center justify-content-center border border-warning"
+                             style="width: 100px; height: 145px;">
+                            <i class="bi bi-film fs-1 text-warning"></i>
+                        </div>
+                    }
+                </div>
+                <div class="col">
+                    <div class="badge bg-warning text-dark px-3 py-1 mb-2 fw-bold rounded-pill text-uppercase" style="letter-spacing:1px;">
+                        👑 Phim Có Doanh Thu Cao Nhất Phòng Vé
+                    </div>
+                    <h3 class="fw-black mb-1 text-white">@champ.MovieTitle</h3>
+                    <p class="text-white-50 mb-3 small">
+                        Thể loại: <span class="text-white fw-semibold">@champ.GenreName</span>
+                    </p>
+                    <div class="row g-3">
+                        <div class="col-auto pe-4 border-end border-white-50">
+                            <div class="text-white-50 small">Doanh thu phòng vé</div>
+                            <div class="fs-4 fw-black text-warning">@champ.TicketRevenue.ToString("N0") đ</div>
+                        </div>
+                        <div class="col-auto pe-4 border-end border-white-50">
+                            <div class="text-white-50 small">Số lượng vé bán ra</div>
+                            <div class="fs-4 fw-bold text-white">@champ.TicketsSold.ToString("N0") <small class="fs-6">vé</small></div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="text-white-50 small">Thị phần doanh thu vé</div>
+                            <div class="fs-4 fw-bold text-info">@champ.RevenueSharePercent%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Interactive Charts Row -->
+<div class="row g-4 mb-4">
+    <!-- Daily Revenue Chart (Vé vs Combo Bắp Nước theo các ngày) -->
+    <div class="col-12 col-xl-8">
+        <div class="card border-0 shadow-sm rounded-3 bg-white h-100">
+            <div class="card-header bg-white border-0 pt-3 px-4 d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold mb-0 text-dark">
+                    <i class="bi bi-calendar-range text-primary me-2"></i>Diễn Biến Doanh Thu Vé &amp; Combo Theo Từng Ngày
+                </h6>
+                <span class="badge bg-light text-muted border">Biểu đồ ngày</span>
+            </div>
+            <div class="card-body p-4 pt-2">
+                <div style="height: 320px;">
+                    <canvas id="dailyRevenueChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Revenue Structure Donut Chart -->
+    <div class="col-12 col-xl-4">
+        <div class="card border-0 shadow-sm rounded-3 bg-white h-100">
+            <div class="card-header bg-white border-0 pt-3 px-4">
+                <h6 class="fw-bold mb-0 text-dark">
+                    <i class="bi bi-pie-chart text-success me-2"></i>Cơ Cấu Nguồn Thu &amp; Thanh Toán
+                </h6>
+            </div>
+            <div class="card-body p-4 pt-2">
+                <div style="height: 240px;" class="mb-3">
+                    <canvas id="revenuePieChart"></canvas>
+                </div>
+                <div class="border-top pt-3">
+                    <div class="d-flex justify-content-between text-sm mb-1">
+                        <span><i class="bi bi-circle-fill text-primary me-1 small"></i> Vé xem phim:</span>
+                        <strong class="text-dark">@Model.TotalTicketRevenue.ToString("N0") đ</strong>
+                    </div>
+                    <div class="d-flex justify-content-between text-sm">
+                        <span><i class="bi bi-circle-fill text-warning me-1 small"></i> Combo bắp nước:</span>
+                        <strong class="text-dark">@Model.TotalFnBRevenue.ToString("N0") đ</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Top Movies Bar Chart & Ranking Table -->
+<div class="row g-4 mb-4">
+    <div class="col-12 col-xl-6">
+        <div class="card border-0 shadow-sm rounded-3 bg-white h-100">
+            <div class="card-header bg-white border-0 pt-3 px-4 d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold mb-0 text-dark">
+                    <i class="bi bi-bar-chart-steps text-danger me-2"></i>Biểu Đồ Top Phim Doanh Thu Cao Nhất
+                </h6>
+            </div>
+            <div class="card-body p-4 pt-2">
+                <div style="height: 340px;">
+                    <canvas id="topMoviesChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Movies Table -->
+    <div class="col-12 col-xl-6">
+        <div class="card border-0 shadow-sm rounded-3 bg-white h-100">
+            <div class="card-header bg-white border-0 pt-3 px-4 d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold mb-0 text-dark">
+                    <i class="bi bi-trophy text-warning me-2"></i>Bảng Xếp Hạng Phim Ăn Khách
+                </h6>
+                <span class="badge bg-light text-muted border">Top @Model.TopMovies.Count phim</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive" style="max-height: 350px;">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light text-muted small">
+                            <tr>
+                                <th class="ps-3" style="width: 50px;">Hạng</th>
+                                <th>Tên phim</th>
+                                <th class="text-center">Vé bán</th>
+                                <th class="text-end pe-3">Doanh thu</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{ int rank = 1; }
+                            @foreach (var movie in Model.TopMovies)
+                            {
+                                <tr>
+                                    <td class="ps-3">
+                                        @if (rank == 1)
+                                        {
+                                            <span class="badge bg-warning text-dark rounded-circle p-2" title="Hạng 1">🥇</span>
+                                        }
+                                        else if (rank == 2)
+                                        {
+                                            <span class="badge bg-secondary-subtle text-secondary rounded-circle p-2" title="Hạng 2">🥈</span>
+                                        }
+                                        else if (rank == 3)
+                                        {
+                                            <span class="badge bg-danger-subtle text-danger rounded-circle p-2" title="Hạng 3">🥉</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="fw-bold text-muted ps-2">#@rank</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold text-dark text-truncate" style="max-width: 200px;">@movie.MovieTitle</div>
+                                        <small class="text-muted">@movie.GenreName • @movie.RevenueSharePercent% thị phần</small>
+                                    </td>
+                                    <td class="text-center fw-semibold">@movie.TicketsSold</td>
+                                    <td class="text-end pe-3 fw-bold text-success">@movie.TicketRevenue.ToString("N0") đ</td>
+                                </tr>
+                                rank++;
+                            }
+                            @if (!Model.TopMovies.Any())
+                            {
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-muted">Chưa có dữ liệu đặt vé trong giai đoạn này.</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detailed Daily Breakdown Table (Doanh thu phim, combo theo các ngày) -->
+<div class="card border-0 shadow-sm rounded-3 bg-white mb-4">
+    <div class="card-header bg-white border-0 pt-3 px-4 d-flex justify-content-between align-items-center">
+        <h6 class="fw-bold mb-0 text-dark">
+            <i class="bi bi-calendar3 me-2 text-primary"></i>Bảng Kê Chi Tiết Doanh Thu Vé &amp; Combo Bắp Nước Theo Các Ngày
+        </h6>
+        <span class="badge bg-light text-muted border">Tổng @Model.DailyBreakdown.Count ngày phát sinh doanh thu</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-muted small">
+                    <tr>
+                        <th class="ps-4">Ngày giao dịch</th>
+                        <th class="text-center">Số đơn hàng</th>
+                        <th class="text-center">Số vé bán</th>
+                        <th class="text-end">Doanh thu Vé phim</th>
+                        <th class="text-end">Doanh thu Combo Bắp nước</th>
+                        <th class="text-end pe-4">Tổng doanh thu trong ngày</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var day in Model.DailyBreakdown.OrderByDescending(d => d.Date))
+                    {
+                        <tr>
+                            <td class="ps-4 fw-bold text-dark">
+                                <i class="bi bi-calendar-event text-secondary me-2"></i>@day.Date.ToString("dd/MM/yyyy (dddd)")
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-light text-dark border">@day.BookingCount đơn</span>
+                            </td>
+                            <td class="text-center fw-semibold text-primary">
+                                @day.TicketCount vé
+                            </td>
+                            <td class="text-end fw-semibold text-primary">
+                                @day.TicketRevenue.ToString("N0") đ
+                            </td>
+                            <td class="text-end fw-semibold text-warning">
+                                @day.FnBRevenue.ToString("N0") đ
+                            </td>
+                            <td class="text-end pe-4 fw-black text-success">
+                                @day.TotalRevenue.ToString("N0") đ
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.DailyBreakdown.Any())
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">Không có giao dịch nào trong khoảng thời gian đã chọn.</td>
+                        </tr>
+                    }
+                </tbody>
+                @if (Model.DailyBreakdown.Any())
+                {
+                    <tfoot class="table-light fw-bold">
+                        <tr>
+                            <td class="ps-4 text-uppercase">Tổng cộng</td>
+                            <td class="text-center">@Model.TotalBookings đơn</td>
+                            <td class="text-center">@Model.TotalTicketsSold vé</td>
+                            <td class="text-end text-primary">@Model.TotalTicketRevenue.ToString("N0") đ</td>
+                            <td class="text-end text-warning">@Model.TotalFnBRevenue.ToString("N0") đ</td>
+                            <td class="text-end pe-4 text-success fs-6">@Model.TotalRevenue.ToString("N0") đ</td>
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Secondary Tables Row: Top FnB & Payment Methods -->
+<div class="row g-4 mb-4">
+    <!-- Top Food & Beverage Items -->
+    <div class="col-12 col-md-6">
+        <div class="card border-0 shadow-sm rounded-3 bg-white h-100">
+            <div class="card-header bg-white border-0 pt-3 px-4 d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold mb-0 text-dark">
+                    <i class="bi bi-cup-hot text-warning me-2"></i>Top Combo Bắp Nước Bán Chạy
+                </h6>
+                <span class="badge bg-light text-muted border">F&amp;B</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light text-muted small">
+                            <tr>
+                                <th class="ps-3">Tên món / Combo</th>
+                                <th class="text-center">Đã bán</th>
+                                <th class="text-end pe-3">Doanh thu</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var fnb in Model.TopFoods)
+                            {
+                                <tr>
+                                    <td class="ps-3">
+                                        <div class="fw-semibold text-dark">@fnb.FoodName</div>
+                                        <small class="text-muted">Chiếm @fnb.RevenueSharePercent% doanh thu F&amp;B</small>
+                                    </td>
+                                    <td class="text-center fw-bold">@fnb.QuantitySold</td>
+                                    <td class="text-end pe-3 fw-bold text-success">@fnb.Revenue.ToString("N0") đ</td>
+                                </tr>
+                            }
+                            @if (!Model.TopFoods.Any())
+                            {
+                                <tr>
+                                    <td colspan="3" class="text-center py-3 text-muted">Chưa có giao dịch mua bắp nước.</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Methods -->
+    <div class="col-12 col-md-6">
+        <div class="card border-0 shadow-sm rounded-3 bg-white h-100">
+            <div class="card-header bg-white border-0 pt-3 px-4 d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold mb-0 text-dark">
+                    <i class="bi bi-credit-card-2-front text-info me-2"></i>Thống Kê Theo Phương Thức Thanh Toán
+                </h6>
+                <span class="badge bg-light text-muted border">Cổng thanh toán</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light text-muted small">
+                            <tr>
+                                <th class="ps-3">Phương thức</th>
+                                <th class="text-center">Số giao dịch</th>
+                                <th class="text-end pe-3">Tổng tiền</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var pm in Model.PaymentMethods)
+                            {
+                                <tr>
+                                    <td class="ps-3">
+                                        <div class="fw-semibold text-dark">
+                                            @if (pm.PaymentMethodName.Contains("VietQR") || pm.PaymentMethodName.Contains("Ví"))
+                                            {
+                                                <i class="bi bi-qr-code text-success me-1"></i>
+                                            }
+                                            else if (pm.PaymentMethodName.Contains("Thẻ"))
+                                            {
+                                                <i class="bi bi-credit-card text-primary me-1"></i>
+                                            }
+                                            else
+                                            {
+                                                <i class="bi bi-cash text-warning me-1"></i>
+                                            }
+                                            @pm.PaymentMethodName
+                                        </div>
+                                        <small class="text-muted">Chiếm @pm.Percentage% tổng tiền</small>
+                                    </td>
+                                    <td class="text-center fw-bold">@pm.BookingCount</td>
+                                    <td class="text-end pe-3 fw-bold text-success">@pm.Revenue.ToString("N0") đ</td>
+                                </tr>
+                            }
+                            @if (!Model.PaymentMethods.Any())
+                            {
+                                <tr>
+                                    <td colspan="3" class="text-center py-3 text-muted">Chưa có giao dịch.</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // ── 1. Daily Revenue Chart (Vé vs Combo Bắp Nước) ────────────────────────
+    const dailyLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.DailyBreakdown.Select(d => d.Date.ToString("dd/MM"))));
+    const ticketData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.DailyBreakdown.Select(d => d.TicketRevenue)));
+    const fnbData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.DailyBreakdown.Select(d => d.FnBRevenue)));
+
+    const ctxDaily = document.getElementById('dailyRevenueChart').getContext('2d');
+    new Chart(ctxDaily, {
+        type: 'bar',
+        data: {
+            labels: dailyLabels,
+            datasets: [
+                {
+                    label: 'Vé xem phim (đ)',
+                    data: ticketData,
+                    backgroundColor: 'rgba(5, 150, 105, 0.85)',
+                    borderRadius: 6,
+                    stack: 'revenue'
+                },
+                {
+                    label: 'Combo Bắp Nước (đ)',
+                    data: fnbData,
+                    backgroundColor: 'rgba(245, 158, 11, 0.85)',
+                    borderRadius: 6,
+                    stack: 'revenue'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let val = context.parsed.y || 0;
+                            return context.dataset.label + ': ' + val.toLocaleString('vi-VN') + ' đ';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { display: false } },
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return (value / 1000).toLocaleString('vi-VN') + 'k';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // ── 2. Revenue Pie Chart (Tỷ trọng Nguồn thu) ───────────────────────────
+    const ctxPie = document.getElementById('revenuePieChart').getContext('2d');
+    new Chart(ctxPie, {
+        type: 'doughnut',
+        data: {
+            labels: ['Vé xem phim', 'Combo bắp nước'],
+            datasets: [{
+                data: [@Model.TotalTicketRevenue, @Model.TotalFnBRevenue],
+                backgroundColor: ['#059669', '#f59e0b'],
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let val = context.parsed || 0;
+                            return context.label + ': ' + val.toLocaleString('vi-VN') + ' đ';
+                        }
+                    }
+                }
+            },
+            cutout: '65%'
+        }
+    });
+
+    // ── 3. Top Movies Horizontal Bar Chart ──────────────────────────────────
+    const movieLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TopMovies.Take(6).Select(m => m.MovieTitle)));
+    const movieRevenues = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TopMovies.Take(6).Select(m => m.TicketRevenue)));
+
+    const ctxMovies = document.getElementById('topMoviesChart').getContext('2d');
+    new Chart(ctxMovies, {
+        type: 'bar',
+        data: {
+            labels: movieLabels,
+            datasets: [{
+                label: 'Doanh thu vé (đ)',
+                data: movieRevenues,
+                backgroundColor: [
+                    '#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5'
+                ],
+                borderRadius: 6
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let val = context.parsed.x || 0;
+                            return 'Doanh thu: ' + val.toLocaleString('vi-VN') + ' đ';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return (value / 1000).toLocaleString('vi-VN') + 'k';
+                        }
+                    }
+                },
+                y: { grid: { display: false } }
+            }
+        }
+    });
+</script>
+}

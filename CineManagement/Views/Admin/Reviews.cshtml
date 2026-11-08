@@ -1,0 +1,241 @@
+@model IEnumerable<CineManagement.Models.Review>
+@{
+    ViewData["Title"] = "Quản lý Đánh giá & Bình luận";
+    Layout = "_AdminLayout";
+    var movies = ViewBag.Movies as List<Movie> ?? new List<Movie>();
+    var selectedMovieId = ViewBag.MovieId as int?;
+    var selectedRating = ViewBag.Rating as int?;
+    var selectedStatus = ViewBag.Status as ReviewStatus?;
+    var search = ViewBag.Search as string;
+
+    int totalReviews = Model.Count();
+    int publishedCount = Model.Count(r => r.Status == ReviewStatus.Published);
+    int hiddenCount = Model.Count(r => r.Status == ReviewStatus.Hidden);
+    double avgRating = totalReviews > 0 ? Model.Average(r => r.Rating) : 0;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-1"><i class="bi bi-chat-square-quote-fill text-warning me-2"></i>Quản lý Đánh giá &amp; Bình luận</h4>
+        <p class="text-muted small mb-0">Kiểm duyệt, theo dõi đánh giá từ khán giả và quản lý trạng thái hiển thị</p>
+    </div>
+</div>
+
+<!-- Stat cards -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-3 p-3">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <span class="text-muted small fw-semibold">Tổng đánh giá</span>
+                    <h3 class="fw-bold mb-0 mt-1">@totalReviews</h3>
+                </div>
+                <div class="bg-primary-subtle text-primary rounded-3 p-2 fs-4">
+                    <i class="bi bi-chat-dots-fill"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-3 p-3">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <span class="text-muted small fw-semibold">Điểm trung bình</span>
+                    <h3 class="fw-bold mb-0 mt-1 text-warning">@(avgRating > 0 ? avgRating.ToString("0.0") : "0.0") <small class="fs-6 text-muted">/ 5</small></h3>
+                </div>
+                <div class="bg-warning-subtle text-warning rounded-3 p-2 fs-4">
+                    <i class="bi bi-star-fill"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-3 p-3">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <span class="text-muted small fw-semibold">Đang hiển thị</span>
+                    <h3 class="fw-bold mb-0 mt-1 text-success">@publishedCount</h3>
+                </div>
+                <div class="bg-success-subtle text-success rounded-3 p-2 fs-4">
+                    <i class="bi bi-check-circle-fill"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-3 p-3">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <span class="text-muted small fw-semibold">Đã ẩn / Vi phạm</span>
+                    <h3 class="fw-bold mb-0 mt-1 text-secondary">@hiddenCount</h3>
+                </div>
+                <div class="bg-secondary-subtle text-secondary rounded-3 p-2 fs-4">
+                    <i class="bi bi-eye-slash-fill"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm rounded-3">
+    <div class="card-body p-4">
+
+        <!-- Filters Form -->
+        <form method="get" class="row g-2 mb-4">
+            <div class="col-md-3">
+                <input type="text" name="search" class="form-control" placeholder="Tìm theo tên, email, nội dung..." value="@search" />
+            </div>
+            <div class="col-md-3">
+                <select name="movieId" class="form-select">
+                    <option value="">– Tất cả các phim –</option>
+                    @foreach (var m in movies)
+                    {
+                        <option value="@m.MovieId" selected="@(selectedMovieId == m.MovieId)">@m.Title</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="rating" class="form-select">
+                    <option value="">– Số sao –</option>
+                    <option value="5" selected="@(selectedRating == 5)">5 Sao (★★★★★)</option>
+                    <option value="4" selected="@(selectedRating == 4)">4 Sao (★★★★)</option>
+                    <option value="3" selected="@(selectedRating == 3)">3 Sao (★★★)</option>
+                    <option value="2" selected="@(selectedRating == 2)">2 Sao (★★)</option>
+                    <option value="1" selected="@(selectedRating == 1)">1 Sao (★)</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="status" class="form-select">
+                    <option value="">– Trạng thái –</option>
+                    <option value="1" selected="@(selectedStatus == ReviewStatus.Published)">Đã đăng (Hiển thị)</option>
+                    <option value="2" selected="@(selectedStatus == ReviewStatus.Hidden)">Đã ẩn</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex gap-1">
+                <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search me-1"></i>Lọc</button>
+                @if (selectedMovieId.HasValue || selectedRating.HasValue || selectedStatus.HasValue || !string.IsNullOrWhiteSpace(search))
+                {
+                    <a asp-action="Reviews" class="btn btn-outline-secondary" title="Đặt lại bộ lọc"><i class="bi bi-arrow-counterclockwise"></i></a>
+                }
+            </div>
+        </form>
+
+        @if (!Model.Any())
+        {
+            <div class="text-center py-5">
+                <i class="bi bi-chat-square-text text-muted fs-1 d-block mb-3"></i>
+                <h6 class="fw-bold text-muted">Không tìm thấy đánh giá nào</h6>
+                <p class="text-muted small">Thử thay đổi bộ lọc hoặc tìm kiếm với từ khóa khác.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 220px;">Phim</th>
+                            <th style="width: 180px;">Khách hàng</th>
+                            <th style="width: 130px;">Đánh giá</th>
+                            <th>Nội dung bình luận</th>
+                            <th style="width: 120px;">Trạng thái</th>
+                            <th style="width: 130px;">Thời gian</th>
+                            <th style="width: 120px;" class="text-end">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in Model)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        @if (!string.IsNullOrEmpty(r.Movie?.PosterUrl))
+                                        {
+                                            <img src="@r.Movie.PosterUrl" alt="@r.Movie.Title" class="rounded object-fit-cover flex-shrink-0" style="width: 38px; height: 50px;" />
+                                        }
+                                        <div class="text-truncate">
+                                            <div class="fw-bold small text-truncate" style="max-width: 160px;" title="@r.Movie?.Title">@r.Movie?.Title</div>
+                                            <span class="badge bg-light text-secondary border" style="font-size: .7rem;">ID: @r.MovieId</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold small">@(r.User?.FullName ?? "Khán giả")</div>
+                                    <div class="text-muted text-truncate" style="font-size: .75rem; max-width: 160px;">@r.User?.Email</div>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-1 text-warning">
+                                        @for (int s = 1; s <= 5; s++)
+                                        {
+                                            if (s <= r.Rating)
+                                            {
+                                                <i class="bi bi-star-fill" style="font-size: .85rem;"></i>
+                                            }
+                                            else
+                                            {
+                                                <i class="bi bi-star text-muted opacity-50" style="font-size: .85rem;"></i>
+                                            }
+                                        }
+                                    </div>
+                                    <div class="text-muted small fw-semibold" style="font-size: .75rem;">@r.Rating / 5 sao</div>
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrWhiteSpace(r.Comment))
+                                    {
+                                        <div class="small text-break" style="max-height: 80px; overflow-y: auto;">
+                                            @r.Comment
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted fst-italic small">Không có nhận xét bằng chữ</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (r.Status == ReviewStatus.Published)
+                                    {
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                            <i class="bi bi-check-circle me-1"></i>Đang hiển thị
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1">
+                                            <i class="bi bi-eye-slash me-1"></i>Đã ẩn
+                                        </span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="small fw-semibold">@r.CreatedAt.ToString("dd/MM/yyyy")</div>
+                                    <div class="text-muted" style="font-size: .75rem;">@r.CreatedAt.ToString("HH:mm")</div>
+                                </td>
+                                <td class="text-end">
+                                    <div class="d-flex align-items-center justify-content-end gap-1">
+                                        <!-- Toggle Status button -->
+                                        <form asp-action="ToggleReviewStatus" asp-route-id="@r.ReviewId" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-sm @(r.Status == ReviewStatus.Published ? "btn-outline-warning" : "btn-outline-success") p-1 px-2"
+                                                    title="@(r.Status == ReviewStatus.Published ? "Ẩn bình luận này" : "Hiển thị lại bình luận")">
+                                                <i class="bi @(r.Status == ReviewStatus.Published ? "bi-eye-slash" : "bi-eye")"></i>
+                                            </button>
+                                        </form>
+
+                                        <!-- Delete button -->
+                                        <form asp-action="DeleteReviewAdmin" asp-route-id="@r.ReviewId" method="post" class="d-inline"
+                                              onsubmit="return confirm('Bạn có chắc chắn muốn xóa vĩnh viễn đánh giá này?');">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-sm btn-outline-danger p-1 px-2" title="Xóa đánh giá">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+    </div>
+</div>
