@@ -21,6 +21,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: 
     container_name: cinemanagement-app
     restart: unless-stopped
     environment:
