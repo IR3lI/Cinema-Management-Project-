@@ -55,5 +55,5 @@ public class ShowtimeSeat
     public Seat? Seat { get; set; }
     public SeatType? SeatType { get; set; }
     public ApplicationUser? HeldByUser { get; set; }
-    public Ticket? Ticket { get; set; }
+    public ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
 }

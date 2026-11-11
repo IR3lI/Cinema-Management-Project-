@@ -183,6 +183,16 @@ public class BookingController : Controller
             ss.UpdatedAt = now;
         }
 
+        // Giải phóng liên kết ShowtimeSeatId khỏi các vé cũ chưa hoàn tất/đã hủy (nếu có)
+        var targetStSeatIds = stSeats.Select(s => s.ShowtimeSeatId).ToList();
+        var staleTickets = await _context.Tickets
+            .Where(t => t.ShowtimeSeatId.HasValue && targetStSeatIds.Contains(t.ShowtimeSeatId.Value) && t.Status != TicketStatus.Issued && t.Status != TicketStatus.CheckedIn)
+            .ToListAsync();
+        foreach (var st in staleTickets)
+        {
+            st.ShowtimeSeatId = null;
+        }
+
         // Tạo đơn đặt vé Pending
         var booking = new Booking
         {

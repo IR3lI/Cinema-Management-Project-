@@ -117,6 +117,7 @@ public sealed class SeatHoldTimeoutWorker : BackgroundService
                     foreach (var ticket in booking.Tickets.Where(t => t.Status == TicketStatus.Held))
                     {
                         ticket.Status = TicketStatus.Cancelled;
+                        ticket.ShowtimeSeatId = null;
                         ticket.UpdatedAt = now;
                     }
 

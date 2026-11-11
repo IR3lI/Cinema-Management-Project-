@@ -218,8 +218,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
         builder.Entity<Ticket>()
             .HasOne(t => t.ShowtimeSeat)
-            .WithOne(ss => ss.Ticket)
-            .HasForeignKey<Ticket>(t => t.ShowtimeSeatId)
+            .WithMany(ss => ss.Tickets)
+            .HasForeignKey(t => t.ShowtimeSeatId)
             .OnDelete(DeleteBehavior.SetNull);
 
         builder.Entity<Ticket>()
