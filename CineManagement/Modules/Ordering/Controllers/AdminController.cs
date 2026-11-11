@@ -7,6 +7,7 @@ using CineManagement.Models;
 using CineManagement.Services;
 using CineManagement.DTOs;
 using CineManagement.Common;
+using CineManagement.Modules.Payments.Domain;
 
 namespace CineManagement.Controllers;
 
@@ -24,24 +25,72 @@ public class AdminController : Controller
 
     // ── Dashboard (Strict RBAC: Admin Only) ────────────────────────────────
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> Dashboard()
+    public async Task<IActionResult> Dashboard(int? cinemaId)
     {
         var today = DateTime.Today;
+        var tomorrow = today.AddDays(1);
+
+        var cinemas = await _context.Cinemas.Where(c => c.IsActive).OrderBy(c => c.Name).ToListAsync();
+        ViewBag.Cinemas = cinemas;
+        ViewBag.CinemaId = cinemaId;
+
+        var baseBookingQuery = _context.Bookings.AsQueryable();
+        var baseShowtimeQuery = _context.Showtimes.AsQueryable();
+        var baseRoomQuery = _context.ScreeningRooms.AsQueryable();
+        var baseTicketQuery = _context.Tickets.AsQueryable();
+
+        if (cinemaId.HasValue)
+        {
+            baseBookingQuery = baseBookingQuery.Where(b => b.Tickets.Any(t => t.Showtime != null && t.Showtime.Room != null && t.Showtime.Room.CinemaId == cinemaId.Value));
+            baseShowtimeQuery = baseShowtimeQuery.Where(s => s.Room != null && s.Room.CinemaId == cinemaId.Value);
+            baseRoomQuery = baseRoomQuery.Where(r => r.CinemaId == cinemaId.Value);
+            baseTicketQuery = baseTicketQuery.Where(t => t.Showtime != null && t.Showtime.Room != null && t.Showtime.Room.CinemaId == cinemaId.Value);
+        }
 
         ViewBag.TotalCinemas   = await _context.Cinemas.CountAsync(c => c.IsActive);
         ViewBag.TotalMovies    = await _context.Movies.CountAsync(m => m.IsActive);
         ViewBag.NowShowing     = await _context.Movies.CountAsync(m => m.Status == MovieStatus.NowShowing && m.IsActive);
         ViewBag.ComingSoon     = await _context.Movies.CountAsync(m => m.Status == MovieStatus.ComingSoon && m.IsActive);
         ViewBag.TotalStaff     = await _context.Staffs.CountAsync(s => s.IsActive);
-        ViewBag.TotalRooms     = await _context.ScreeningRooms.CountAsync(r => r.IsActive);
-        ViewBag.TotalShowtimes = await _context.Showtimes.CountAsync(s => s.StartTime >= today && s.Status == ShowtimeStatus.Available);
+        ViewBag.TotalRooms     = await baseRoomQuery.CountAsync(r => r.IsActive);
+        ViewBag.TotalShowtimes = await baseShowtimeQuery.CountAsync(s => s.StartTime >= today && s.Status == ShowtimeStatus.Available);
         ViewBag.TotalFood      = await _context.FoodItems.CountAsync(f => f.IsAvailable);
 
-        var tomorrow = today.AddDays(1);
-        ViewBag.TodayBookings  = await _context.Bookings.CountAsync(b => b.BookingTime >= today && b.BookingTime < tomorrow && b.Status == BookingStatus.Confirmed);
-        ViewBag.TodayRevenue   = await _context.Bookings
+        var todayConfirmedBookings = await baseBookingQuery
             .Where(b => b.BookingTime >= today && b.BookingTime < tomorrow && b.Status == BookingStatus.Confirmed)
-            .SumAsync(b => (decimal?)b.FinalAmount) ?? 0;
+            .ToListAsync();
+
+        ViewBag.TodayBookings  = todayConfirmedBookings.Count;
+        ViewBag.TodayRevenue   = todayConfirmedBookings.Sum(b => b.FinalAmount);
+        ViewBag.TodayTicketRevenue = todayConfirmedBookings.Sum(b => b.TicketAmount);
+        ViewBag.TodayFnBRevenue = todayConfirmedBookings.Sum(b => b.FnBAmount);
+
+        // Tổng số vé in nhiệt 80mm
+        ViewBag.TotalPrintedTickets = await baseTicketQuery.CountAsync(t => t.IsPrinted);
+
+        // Tỷ lệ lấp đầy phòng chiếu hôm nay (%)
+        var todayShowtimeIds = await baseShowtimeQuery
+            .Where(s => s.StartTime >= today && s.StartTime < tomorrow)
+            .Select(s => s.ShowtimeId)
+            .ToListAsync();
+
+        decimal occupancyRate = 0;
+        if (todayShowtimeIds.Count > 0)
+        {
+            var soldCount = await _context.Tickets
+                .CountAsync(t => todayShowtimeIds.Contains(t.ShowtimeId) && (t.Status == TicketStatus.Issued || t.Status == TicketStatus.CheckedIn));
+            
+            var totalSeatsToday = await _context.Showtimes
+                .Where(s => todayShowtimeIds.Contains(s.ShowtimeId))
+                .Select(s => s.Room != null ? s.Room.Seats.Count(st => st.IsActive) : 0)
+                .SumAsync();
+
+            if (totalSeatsToday > 0)
+            {
+                occupancyRate = Math.Round((decimal)soldCount / totalSeatsToday * 100, 1);
+            }
+        }
+        ViewBag.OccupancyRate = occupancyRate;
 
         var recentMovies = await _context.Movies
             .Include(m => m.Genre)
@@ -83,7 +132,7 @@ public class AdminController : Controller
 
     // ── Comprehensive Reports & Statistics (Strict RBAC: Admin Only) ──────
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> Reports(DateTime? fromDate, DateTime? toDate, string? period)
+    public async Task<IActionResult> Reports(DateTime? fromDate, DateTime? toDate, string? period, int? cinemaId)
     {
         var today = DateTime.Today;
 
@@ -120,11 +169,13 @@ public class AdminController : Controller
             toDate = null;
         }
 
+        ViewBag.Cinemas = await _context.Cinemas.Where(c => c.IsActive).OrderBy(c => c.Name).ToListAsync();
+        ViewBag.CinemaId = cinemaId;
         ViewBag.Period = period ?? "custom";
         ViewBag.FromDate = fromDate;
         ViewBag.ToDate = toDate;
 
-        var analytics = await _reportService.GetDetailedAnalyticsAsync(fromDate, toDate);
+        var analytics = await _reportService.GetDetailedAnalyticsAsync(fromDate, toDate, cinemaId);
         return View(analytics);
     }
 
@@ -474,5 +525,85 @@ public class AdminController : Controller
 
         TempData["Success"] = "Đã xóa bình luận thành công.";
         return RedirectToAction(nameof(Reviews));
+    }
+
+    // ── Transactional Outbox Queue Monitor (CLO1) ──────────────────────────
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Outbox(string? status, string? search)
+    {
+        var query = _context.OutboxMessages.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            switch (status.ToLowerInvariant())
+            {
+                case "pending":
+                    query = query.Where(o => o.ProcessedAt == null && o.RetryCount < o.MaxRetries);
+                    break;
+                case "processed":
+                    query = query.Where(o => o.ProcessedAt != null);
+                    break;
+                case "failed":
+                    query = query.Where(o => o.ProcessedAt == null && o.RetryCount >= o.MaxRetries);
+                    break;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            query = query.Where(o => o.Type.Contains(term) || o.Payload.Contains(term));
+        }
+
+        ViewBag.Status = status;
+        ViewBag.Search = search;
+        ViewBag.TotalCount = await _context.OutboxMessages.CountAsync();
+        ViewBag.PendingCount = await _context.OutboxMessages.CountAsync(o => o.ProcessedAt == null && o.RetryCount < o.MaxRetries);
+        ViewBag.ProcessedCount = await _context.OutboxMessages.CountAsync(o => o.ProcessedAt != null);
+        ViewBag.FailedCount = await _context.OutboxMessages.CountAsync(o => o.ProcessedAt == null && o.RetryCount >= o.MaxRetries);
+
+        var list = await query.OrderByDescending(o => o.CreatedAt).Take(100).ToListAsync();
+        return View(list);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "Admin")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RetryOutbox(int id)
+    {
+        var msg = await _context.OutboxMessages.FindAsync(id);
+        if (msg == null) return NotFound();
+
+        msg.RetryCount = 0;
+        msg.LastError = null;
+        msg.ProcessedAt = null;
+        await _context.SaveChangesAsync();
+
+        TempData["Success"] = $"Đã reset thông điệp Outbox #{id} về trạng thái Pending. Worker sẽ lập tức gửi lại trong vài giây!";
+        return RedirectToAction(nameof(Outbox));
+    }
+
+    // ── Voucher Management (Strict RBAC: Admin Only) ───────────────────────
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Vouchers()
+    {
+        var vouchers = await _context.Vouchers.OrderByDescending(v => v.CreatedAt).ToListAsync();
+        return View(vouchers);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "Admin")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ToggleVoucher(int id)
+    {
+        var voucher = await _context.Vouchers.FindAsync(id);
+        if (voucher == null) return NotFound();
+
+        voucher.IsActive = !voucher.IsActive;
+        voucher.UpdatedAt = DateTime.Now;
+        await _context.SaveChangesAsync();
+
+        TempData["Success"] = $"Đã {(voucher.IsActive ? "kích hoạt" : "vô hiệu hóa")} mã giảm giá {voucher.Code}.";
+        return RedirectToAction(nameof(Vouchers));
     }
 }

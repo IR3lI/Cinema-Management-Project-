@@ -68,22 +68,11 @@
         </div>
 
         <nav class="nav flex-column mt-3 flex-grow-1 overflow-auto">
-            <!-- Vận hành & Quầy vé (Cả Nhân viên Staff và Quản trị Admin) -->
-            <div class="nav-link text-uppercase fw-bold text-emerald-400 opacity-75" style="font-size:.68rem;margin-top:.4rem;padding-left:1.3rem;letter-spacing:1px;color:#34d399;">
-                Vận hành Quầy POS
-            </div>
-            <a class="nav-link text-white fw-bold mb-1" style="background: rgba(16, 185, 129, 0.25); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 8px; margin: 0 10px;"
-               asp-controller="Counter" asp-action="Index">
-                <i class="bi bi-shop text-success fs-6 me-1"></i> Quầy vé POS &amp; Soát vé QR
-            </a>
-            <a class="nav-link" asp-controller="Admin" asp-action="Bookings">
-                <i class="bi bi-ticket-perforated"></i> Quản lý Đặt vé
-            </a>
-
             @if (User.IsInRole("Admin"))
             {
-                <div class="nav-link text-uppercase fw-bold opacity-75" style="font-size:.68rem;margin-top:.8rem;padding-left:1.3rem;letter-spacing:1px;color:#38bdf8;">
-                    Quản trị &amp; Báo cáo
+                <!-- 1. THỐNG KÊ & GIÁM SÁT -->
+                <div class="nav-link text-uppercase fw-bold opacity-75" style="font-size:.68rem;margin-top:.4rem;padding-left:1.3rem;letter-spacing:1px;color:#38bdf8;">
+                    1. Thống kê &amp; Giám sát
                 </div>
                 <a class="nav-link" asp-controller="Admin" asp-action="Dashboard">
                     <i class="bi bi-speedometer2 text-info"></i> Dashboard Tổng quan
@@ -91,47 +80,75 @@
                 <a class="nav-link text-white" asp-controller="Admin" asp-action="Reports">
                     <i class="bi bi-graph-up-arrow text-warning"></i> Báo cáo &amp; Doanh thu
                 </a>
+                <a class="nav-link" asp-controller="Admin" asp-action="Outbox">
+                    <i class="bi bi-envelope-paper text-primary"></i> Hàng đợi Email Outbox
+                </a>
 
-                <!-- Cụm rạp & Phòng chiếu -->
-                <div class="nav-link text-uppercase fw-semibold text-secondary" style="font-size:.68rem;margin-top:.8rem;padding-left:1.3rem;letter-spacing:1px;">
-                    Hạ tầng Cụm rạp
+                <!-- 2. HẠ TẦNG CHUỖI RẠP -->
+                <div class="nav-link text-uppercase fw-bold opacity-75" style="font-size:.68rem;margin-top:.8rem;padding-left:1.3rem;letter-spacing:1px;color:#fbbf24;">
+                    2. Hạ tầng Chuỗi Rạp
                 </div>
                 <a class="nav-link" asp-controller="Cinema" asp-action="Index">
-                    <i class="bi bi-buildings text-warning"></i> Cụm rạp (Cinemas)
+                    <i class="bi bi-buildings text-warning"></i> Cụm rạp chi nhánh
                 </a>
                 <a class="nav-link" asp-controller="ScreeningRoom" asp-action="Index">
-                    <i class="bi bi-building"></i> Phòng chiếu
+                    <i class="bi bi-building"></i> Phòng chiếu &amp; Sơ đồ 2D
                 </a>
                 <a class="nav-link" asp-controller="ScreeningRoom" asp-action="SeatTypes">
-                    <i class="bi bi-grid-3x3-gap"></i> Loại ghế (Seat Types)
-                </a>
-                <a class="nav-link" asp-controller="Showtime" asp-action="Index">
-                    <i class="bi bi-calendar-event"></i> Lịch chiếu
+                    <i class="bi bi-grid-3x3-gap"></i> Cấu hình Hạng ghế
                 </a>
 
-                <!-- Danh mục nội dung -->
-                <div class="nav-link text-uppercase fw-semibold text-secondary" style="font-size:.68rem;margin-top:.8rem;padding-left:1.3rem;letter-spacing:1px;">
-                    Quản lý nội dung
+                <!-- 3. NỘI DUNG & LỊCH CHIẾU -->
+                <div class="nav-link text-uppercase fw-bold opacity-75" style="font-size:.68rem;margin-top:.8rem;padding-left:1.3rem;letter-spacing:1px;color:#a78bfa;">
+                    3. Nội dung &amp; Lịch chiếu
                 </div>
                 <a class="nav-link" asp-controller="Movie" asp-action="Index">
                     <i class="bi bi-film"></i> Danh mục Phim
                 </a>
                 <a class="nav-link" asp-controller="Genre" asp-action="Index">
-                    <i class="bi bi-tags"></i> Thể loại
+                    <i class="bi bi-tags"></i> Thể loại phim
+                </a>
+                <a class="nav-link" asp-controller="Showtime" asp-action="Index">
+                    <i class="bi bi-calendar-event"></i> Quản lý Lịch chiếu
                 </a>
                 <a class="nav-link" asp-controller="Food" asp-action="Index">
-                    <i class="bi bi-cup-straw"></i> Đồ ăn &amp; Nước (F&amp;B)
+                    <i class="bi bi-cup-straw"></i> Bắp nước F&amp;B
                 </a>
-                <a class="nav-link" asp-controller="Admin" asp-action="Reviews">
-                    <i class="bi bi-chat-square-quote"></i> Đánh giá &amp; Bình luận
+                <a class="nav-link" asp-controller="Admin" asp-action="Vouchers">
+                    <i class="bi bi-ticket-detailed"></i> Voucher Khuyến mãi
                 </a>
 
-                <div class="nav-link text-uppercase fw-semibold text-secondary" style="font-size:.68rem;margin-top:.8rem;padding-left:1.3rem;letter-spacing:1px;">
-                    Hệ thống
+                <!-- 4. VẬN HÀNH & NHÂN SỰ -->
+                <div class="nav-link text-uppercase fw-bold opacity-75" style="font-size:.68rem;margin-top:.8rem;padding-left:1.3rem;letter-spacing:1px;color:#34d399;">
+                    4. Vận hành &amp; Nhân sự
                 </div>
-                <a class="nav-link" asp-controller="Staff" asp-action="Index">
-                    <i class="bi bi-people"></i> Nhân viên
+                <a class="nav-link text-white fw-bold mb-1" style="background: rgba(16, 185, 129, 0.25); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 8px; margin: 0 10px;"
+                   asp-controller="Counter" asp-action="Index">
+                    <i class="bi bi-shop text-success fs-6 me-1"></i> Cổng Quầy POS Bán Vé
                 </a>
+                <a class="nav-link" asp-controller="Admin" asp-action="Bookings">
+                    <i class="bi bi-ticket-perforated"></i> Quản lý Đặt vé
+                </a>
+                <a class="nav-link" asp-controller="Staff" asp-action="Index">
+                    <i class="bi bi-people"></i> Nhân sự &amp; Tài khoản
+                </a>
+                <a class="nav-link" asp-controller="Admin" asp-action="Reviews">
+                    <i class="bi bi-chat-square-quote"></i> Đánh giá của khách
+                </a>
+            }
+            else
+            {
+                <!-- DÀNH RIÊNG CHO STAFF (NHÂN VIÊN QUẦY POS) -->
+                <div class="nav-link text-uppercase fw-bold text-emerald-400 opacity-75" style="font-size:.68rem;margin-top:.4rem;padding-left:1.3rem;letter-spacing:1px;color:#34d399;">
+                    Cổng Vận Hành Quầy Vé POS
+                </div>
+                <a class="nav-link text-white fw-bold mb-2 py-3" style="background: rgba(16, 185, 129, 0.35); border: 1px solid rgba(52, 211, 153, 0.6); border-radius: 10px; margin: 0 10px;"
+                   asp-controller="Counter" asp-action="Index">
+                    <i class="bi bi-shop text-success fs-5 me-2"></i> Quầy POS Bán &amp; Đổi Vé 80mm
+                </a>
+                <div class="px-3 py-2 text-white-50 small">
+                    <i class="bi bi-shield-check text-success me-1"></i>Tài khoản Nhân viên POS được cấp quyền bán vé tại quầy và in vé nhiệt 80mm. Các phân hệ cấu hình và doanh thu được bảo mật.
+                </div>
             }
         </nav>
 

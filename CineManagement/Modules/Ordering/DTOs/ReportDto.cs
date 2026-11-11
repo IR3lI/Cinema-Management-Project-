@@ -63,6 +63,13 @@ public sealed record DetailedAnalyticsDto
     public int TotalBookings { get; init; }
     public decimal AverageOrderValue { get; init; }
 
+    // Quản trị chuỗi rạp & POS 80mm & Tỷ lệ lấp đầy
+    public int TotalPrintedTickets { get; init; }
+    public decimal AverageOccupancyRate { get; init; }
+    public decimal PosFnBUpsellRevenue { get; init; }
+    public int? CinemaId { get; init; }
+    public string? CinemaName { get; init; }
+
     // Highlight
     public TopMovieDto? HighestGrossingMovie { get; init; }
 

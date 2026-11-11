@@ -87,6 +87,9 @@ public class MovieController : Controller
             Description = model.Description,
             Director = model.Director,
             Actors = model.Actors,
+            Country = string.IsNullOrWhiteSpace(model.Country) ? "Việt Nam" : model.Country.Trim(),
+            Format = string.IsNullOrWhiteSpace(model.Format) ? "2D" : model.Format.Trim(),
+            SubtitleType = string.IsNullOrWhiteSpace(model.SubtitleType) ? "Phụ đề Việt" : model.SubtitleType.Trim(),
             Duration = model.Duration,
             ReleaseDate = model.ReleaseDate,
             EndDate = model.EndDate,
@@ -100,10 +103,14 @@ public class MovieController : Controller
             IsActive = true
         };
 
-        // Handle poster upload
+        // Handle poster upload (S3/Local) or Direct URL
         if (model.PosterFile != null && model.PosterFile.Length > 0)
         {
             movie.PosterUrl = await _fileStorageService.SaveImageAsync(model.PosterFile, "posters");
+        }
+        else if (!string.IsNullOrWhiteSpace(model.DirectPosterUrl))
+        {
+            movie.PosterUrl = model.DirectPosterUrl.Trim();
         }
 
         _context.Movies.Add(movie);
@@ -127,10 +134,14 @@ public class MovieController : Controller
             Description = movie.Description,
             Director = movie.Director,
             Actors = movie.Actors,
+            Country = movie.Country,
+            Format = movie.Format,
+            SubtitleType = movie.SubtitleType,
             Duration = movie.Duration,
             ReleaseDate = movie.ReleaseDate,
             EndDate = movie.EndDate,
             PosterUrl = movie.PosterUrl,
+            DirectPosterUrl = movie.PosterUrl,
             TrailerUrl = movie.TrailerUrl,
             Status = movie.Status,
             Rating = movie.Rating,
@@ -166,6 +177,9 @@ public class MovieController : Controller
         movie.Description = model.Description;
         movie.Director = model.Director;
         movie.Actors = model.Actors;
+        movie.Country = string.IsNullOrWhiteSpace(model.Country) ? "Việt Nam" : model.Country.Trim();
+        movie.Format = string.IsNullOrWhiteSpace(model.Format) ? "2D" : model.Format.Trim();
+        movie.SubtitleType = string.IsNullOrWhiteSpace(model.SubtitleType) ? "Phụ đề Việt" : model.SubtitleType.Trim();
         movie.Duration = model.Duration;
         movie.ReleaseDate = model.ReleaseDate;
         movie.EndDate = model.EndDate;
@@ -175,14 +189,19 @@ public class MovieController : Controller
         movie.AgeRating = model.AgeRating;
         movie.Language = model.Language;
         movie.GenreId = model.GenreId;
+        movie.UpdatedAt = DateTime.Now;
 
         if (model.PosterFile != null && model.PosterFile.Length > 0)
         {
-            // Delete old poster
-            if (!string.IsNullOrEmpty(movie.PosterUrl))
+            // Delete old poster if local
+            if (!string.IsNullOrEmpty(movie.PosterUrl) && movie.PosterUrl.StartsWith("/uploads/"))
                 _fileStorageService.DeleteFile(movie.PosterUrl);
 
             movie.PosterUrl = await _fileStorageService.SaveImageAsync(model.PosterFile, "posters");
+        }
+        else if (!string.IsNullOrWhiteSpace(model.DirectPosterUrl) && model.DirectPosterUrl.Trim() != movie.PosterUrl)
+        {
+            movie.PosterUrl = model.DirectPosterUrl.Trim();
         }
 
         _context.Update(movie);

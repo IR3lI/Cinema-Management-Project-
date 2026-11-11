@@ -5,15 +5,23 @@
     var period = ViewBag.Period as string ?? "all";
     var fromDateStr = ViewBag.FromDate != null ? ((DateTime)ViewBag.FromDate).ToString("yyyy-MM-dd") : "";
     var toDateStr = ViewBag.ToDate != null ? ((DateTime)ViewBag.ToDate).ToString("yyyy-MM-dd") : "";
+    var cinemas = ViewBag.Cinemas as List<Cinema> ?? new List<Cinema>();
+    var selectedCinemaId = ViewBag.CinemaId as int?;
 }
 
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
     <div>
         <h4 class="fw-bold mb-1 text-dark">
-            <i class="bi bi-graph-up-arrow text-success me-2"></i>Báo Cáo &amp; Thống Kê Doanh Thu
+            <i class="bi bi-graph-up-arrow text-success me-2"></i>Báo Cáo &amp; Thống Kê Doanh Thu Chuỗi Rạp
         </h4>
         <p class="text-muted small mb-0">
-            Phân tích chuyên sâu doanh thu vé phim, combo bắp nước F&amp;B và hành vi tiêu dùng
+            Phân tích chuyên sâu doanh thu vé phim, combo bắp nước F&amp;B, in nhiệt 80mm &amp; tỷ lệ lấp đầy theo từng cụm rạp
+            @if (!string.IsNullOrEmpty(Model.CinemaName))
+            {
+                <span class="badge bg-warning-subtle text-dark border border-warning ms-1">
+                    <i class="bi bi-buildings me-1"></i>@Model.CinemaName
+                </span>
+            }
         </p>
     </div>
     <div class="d-flex gap-2">
@@ -23,26 +31,39 @@
     </div>
 </div>
 
-<!-- Date filter toolbar -->
-<div class="card border-0 shadow-sm rounded-3 mb-4 bg-white">
+<!-- Date & Branch filter toolbar -->
+<div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
     <div class="card-body p-3">
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
             <!-- Quick filters -->
             <div class="btn-group btn-group-sm" role="group">
-                <a asp-action="Reports" asp-route-period="all"
+                <a asp-action="Reports" asp-route-period="all" asp-route-cinemaId="@selectedCinemaId"
                    class="btn @(period == "all" ? "btn-success" : "btn-outline-secondary")">Tất cả</a>
-                <a asp-action="Reports" asp-route-period="today"
+                <a asp-action="Reports" asp-route-period="today" asp-route-cinemaId="@selectedCinemaId"
                    class="btn @(period == "today" ? "btn-success" : "btn-outline-secondary")">Hôm nay</a>
-                <a asp-action="Reports" asp-route-period="7days"
+                <a asp-action="Reports" asp-route-period="7days" asp-route-cinemaId="@selectedCinemaId"
                    class="btn @(period == "7days" ? "btn-success" : "btn-outline-secondary")">7 ngày qua</a>
-                <a asp-action="Reports" asp-route-period="30days"
+                <a asp-action="Reports" asp-route-period="30days" asp-route-cinemaId="@selectedCinemaId"
                    class="btn @(period == "30days" ? "btn-success" : "btn-outline-secondary")">30 ngày qua</a>
-                <a asp-action="Reports" asp-route-period="thismonth"
+                <a asp-action="Reports" asp-route-period="thismonth" asp-route-cinemaId="@selectedCinemaId"
                    class="btn @(period == "thismonth" ? "btn-success" : "btn-outline-secondary")">Tháng này</a>
             </div>
 
-            <!-- Custom date range -->
+            <!-- Custom date range & Cinema selector -->
             <form method="get" asp-action="Reports" class="d-flex align-items-center gap-2 flex-wrap">
+                <div class="input-group input-group-sm" style="width: auto;">
+                    <span class="input-group-text bg-light text-muted"><i class="bi bi-buildings text-warning me-1"></i>Cụm rạp</span>
+                    <select name="cinemaId" class="form-select">
+                        <option value="">🏢 Tất cả cụm rạp</option>
+                        @foreach (var c in cinemas)
+                        {
+                            <!option value="@c.CinemaId" @(selectedCinemaId == c.CinemaId ? "selected" : "")>
+                                @c.Name (@c.City)
+                            </!option>
+                        }
+                    </select>
+                </div>
+
                 <div class="input-group input-group-sm" style="width: auto;">
                     <span class="input-group-text bg-light text-muted">Từ</span>
                     <input type="date" name="fromDate" value="@fromDateStr" class="form-control" />
@@ -54,7 +75,118 @@
                 <button type="submit" class="btn btn-primary btn-sm px-3 shadow-sm">
                     <i class="bi bi-filter me-1"></i>Lọc
                 </button>
+                @if (selectedCinemaId.HasValue || !string.IsNullOrEmpty(fromDateStr) || !string.IsNullOrEmpty(toDateStr))
+                {
+                    <a asp-action="Reports" class="btn btn-outline-secondary btn-sm" title="Xóa bộ lọc">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </a>
+                }
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Key Metric Indicators (KPIs: Vé, Bắp nước kèm POS Upsell, Vé in nhiệt 80mm, Tỷ lệ lấp đầy %) -->
+<div class="row g-3 mb-4">
+    <!-- 1. Total Revenue -->
+    <div class="col-12 col-sm-6 col-xl-4 col-xxl-2">
+        <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted small fw-semibold text-uppercase">Tổng Doanh Thu</span>
+                    <div class="bg-success-subtle text-success p-2 rounded-2">
+                        <i class="bi bi-cash-coin fs-5"></i>
+                    </div>
+                </div>
+                <h4 class="fw-bold mb-1 text-dark">@Model.TotalRevenue.ToString("N0") đ</h4>
+                <div class="small text-muted">
+                    Sau chiết khấu: <span class="text-danger">-@Model.TotalDiscount.ToString("N0") đ</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Ticket Revenue -->
+    <div class="col-12 col-sm-6 col-xl-4 col-xxl-2">
+        <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted small fw-semibold text-uppercase">Doanh Thu Vé Phim</span>
+                    <div class="bg-primary-subtle text-primary p-2 rounded-2">
+                        <i class="bi bi-ticket-perforated fs-5"></i>
+                    </div>
+                </div>
+                <h4 class="fw-bold mb-1 text-primary">@Model.TotalTicketRevenue.ToString("N0") đ</h4>
+                <div class="small text-muted">
+                    Đã xuất: <strong class="text-dark">@Model.TotalTicketsSold</strong> vé
+                    @if (Model.TotalRevenue > 0)
+                    {
+                        <span class="badge bg-light text-primary border ms-1">
+                            @(Math.Round((Model.TotalTicketRevenue / Model.TotalRevenue) * 100, 1))%
+                        </span>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. FnB Revenue (Combo Bắp Nước & POS Upsell) -->
+    <div class="col-12 col-sm-6 col-xl-4 col-xxl-3">
+        <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted small fw-semibold text-uppercase">Bắp Nước F&amp;B (POS Upsell)</span>
+                    <div class="bg-warning-subtle text-warning p-2 rounded-2">
+                        <i class="bi bi-cup-straw fs-5"></i>
+                    </div>
+                </div>
+                <h4 class="fw-bold mb-1 text-dark">@Model.TotalFnBRevenue.ToString("N0") đ</h4>
+                <div class="small text-muted">
+                    Quầy POS Upsell: <strong class="text-success">@Model.PosFnBUpsellRevenue.ToString("N0") đ</strong>
+                    @if (Model.TotalRevenue > 0)
+                    {
+                        <span class="badge bg-warning-subtle text-dark border ms-1">
+                            @(Math.Round((Model.TotalFnBRevenue / Model.TotalRevenue) * 100, 1))%
+                        </span>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Thermal Printed Tickets 80mm -->
+    <div class="col-12 col-sm-6 col-xl-6 col-xxl-2">
+        <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted small fw-semibold text-uppercase">Vé In Nhiệt 80mm</span>
+                    <div class="bg-success-subtle text-success p-2 rounded-2">
+                        <i class="bi bi-printer-fill fs-5"></i>
+                    </div>
+                </div>
+                <h4 class="fw-bold mb-1 text-success">@Model.TotalPrintedTickets <small class="fs-6 text-muted">vé</small></h4>
+                <div class="small text-muted">
+                    Tỷ lệ in: <strong class="text-dark">@(Model.TotalTicketsSold > 0 ? Math.Round((decimal)Model.TotalPrintedTickets / Model.TotalTicketsSold * 100, 1) : 0)%</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Average Occupancy Rate (%) -->
+    <div class="col-12 col-sm-6 col-xl-6 col-xxl-3">
+        <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
+            <div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted small fw-semibold text-uppercase">Tỷ Lệ Lấp Đầy Phòng Chiếu</span>
+                    <div class="bg-info-subtle text-info p-2 rounded-2">
+                        <i class="bi bi-pie-chart-fill fs-5"></i>
+                    </div>
+                </div>
+                <h4 class="fw-bold mb-1 text-info">@Model.AverageOccupancyRate%</h4>
+                <div class="progress mt-2" style="height: 6px;">
+                    <div class="progress-bar bg-info progress-bar-striped progress-bar-animated" role="progressbar" style="width: @Math.Min(100, Model.AverageOccupancyRate)%"></div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -109,94 +241,6 @@
         </div>
     </div>
 }
-
-<!-- Key Metric Indicators (KPIs) -->
-<div class="row g-3 mb-4">
-    <!-- Total Revenue -->
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
-            <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="text-muted small fw-semibold text-uppercase">Tổng Doanh Thu</span>
-                    <div class="bg-success-subtle text-success p-2 rounded-2">
-                        <i class="bi bi-cash-coin fs-5"></i>
-                    </div>
-                </div>
-                <h4 class="fw-bold mb-1 text-dark">@Model.TotalRevenue.ToString("N0") đ</h4>
-                <div class="small text-muted">
-                    Sau chiết khấu: <span class="text-danger">-@Model.TotalDiscount.ToString("N0") đ</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Ticket Revenue -->
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
-            <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="text-muted small fw-semibold text-uppercase">Doanh Thu Vé Phim</span>
-                    <div class="bg-primary-subtle text-primary p-2 rounded-2">
-                        <i class="bi bi-ticket-perforated fs-5"></i>
-                    </div>
-                </div>
-                <h4 class="fw-bold mb-1 text-primary">@Model.TotalTicketRevenue.ToString("N0") đ</h4>
-                <div class="small text-muted">
-                    Đã xuất: <strong class="text-dark">@Model.TotalTicketsSold</strong> vé
-                    @if (Model.TotalRevenue > 0)
-                    {
-                        <span class="badge bg-light text-primary border ms-1">
-                            @(Math.Round((Model.TotalTicketRevenue / Model.TotalRevenue) * 100, 1))%
-                        </span>
-                    }
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- FnB Revenue (Combo Bắp Nước) -->
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
-            <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="text-muted small fw-semibold text-uppercase">Doanh Thu Combo Bắp Nước</span>
-                    <div class="bg-warning-subtle text-warning p-2 rounded-2">
-                        <i class="bi bi-cup-straw fs-5"></i>
-                    </div>
-                </div>
-                <h4 class="fw-bold mb-1 text-dark">@Model.TotalFnBRevenue.ToString("N0") đ</h4>
-                <div class="small text-muted">
-                    Đóng góp: 
-                    @if (Model.TotalRevenue > 0)
-                    {
-                        <span class="badge bg-warning-subtle text-dark border ms-1">
-                            @(Math.Round((Model.TotalFnBRevenue / Model.TotalRevenue) * 100, 1))%
-                        </span>
-                    }
-                    <span> tổng thu</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Total Bookings & AOV -->
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
-            <div class="card-body p-3">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="text-muted small fw-semibold text-uppercase">Đơn Hàng &amp; Giá Trị TB</span>
-                    <div class="bg-info-subtle text-info p-2 rounded-2">
-                        <i class="bi bi-bag-check fs-5"></i>
-                    </div>
-                </div>
-                <h4 class="fw-bold mb-1 text-dark">@Model.TotalBookings <small class="fs-6 text-muted">đơn</small></h4>
-                <div class="small text-muted">
-                    Giá trị TB/đơn: <strong class="text-success">@Model.AverageOrderValue.ToString("N0") đ</strong>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- Interactive Charts Row -->
 <div class="row g-4 mb-4">

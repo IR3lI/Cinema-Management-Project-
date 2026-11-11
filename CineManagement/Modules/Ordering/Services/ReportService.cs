@@ -118,6 +118,7 @@ public sealed class ReportService : IReportService
     public async Task<DetailedAnalyticsDto> GetDetailedAnalyticsAsync(
         DateTime? fromDate = null,
         DateTime? toDate = null,
+        int? cinemaId = null,
         CancellationToken cancellationToken = default)
     {
         var query = _db.Bookings
@@ -134,6 +135,16 @@ public sealed class ReportService : IReportService
         {
             var until = toDate.Value.Date.AddDays(1);
             query = query.Where(b => (b.PaidAt ?? b.BookingTime) < until);
+        }
+
+        string? cinemaName = null;
+        if (cinemaId.HasValue)
+        {
+            query = query.Where(b => b.Tickets.Any(t => t.Showtime != null && t.Showtime.Room != null && t.Showtime.Room.CinemaId == cinemaId.Value));
+            cinemaName = await _db.Cinemas
+                .Where(c => c.CinemaId == cinemaId.Value)
+                .Select(c => c.Name)
+                .FirstOrDefaultAsync(cancellationToken);
         }
 
         var confirmedBookings = await query
@@ -248,10 +259,45 @@ public sealed class ReportService : IReportService
             .OrderByDescending(p => p.Revenue)
             .ToList();
 
+        var totalPrintedTickets = allTickets.Count(t => t.IsPrinted);
+
+        // POS F&B Upsell: concessions sold from Counter bookings or with note containing "quầy"
+        var posFnBUpsellRevenue = confirmedBookings
+            .Where(b => (b.Notes != null && b.Notes.Contains("quầy")) || b.PaymentMethod == PaymentMethod.Cash || b.Tickets.Any(t => t.IsPrinted))
+            .Sum(b => b.FnBAmount);
+
+        // Average Occupancy Rate Calculation across related showtimes:
+        var relevantShowtimes = allTickets
+            .Select(t => t.ShowtimeId)
+            .Distinct()
+            .ToList();
+
+        decimal avgOccupancyRate = 0;
+        if (relevantShowtimes.Count > 0)
+        {
+            var showtimeCapacities = await _db.Showtimes
+                .AsNoTracking()
+                .Where(s => relevantShowtimes.Contains(s.ShowtimeId))
+                .Select(s => new
+                {
+                    s.ShowtimeId,
+                    Capacity = s.Room != null ? s.Room.Seats.Count(st => st.IsActive) : 0
+                })
+                .ToListAsync(cancellationToken);
+
+            var totalCapacity = showtimeCapacities.Sum(sc => sc.Capacity);
+            if (totalCapacity > 0)
+            {
+                avgOccupancyRate = Math.Round((decimal)totalTicketsSold / totalCapacity * 100, 1);
+            }
+        }
+
         return new DetailedAnalyticsDto
         {
             FromDate = fromDate,
             ToDate = toDate,
+            CinemaId = cinemaId,
+            CinemaName = cinemaName,
             TotalRevenue = totalRevenue,
             TotalTicketRevenue = totalTicketRevenue,
             TotalFnBRevenue = totalFnBRevenue,
@@ -259,6 +305,9 @@ public sealed class ReportService : IReportService
             TotalTicketsSold = totalTicketsSold,
             TotalBookings = totalBookings,
             AverageOrderValue = avgOrder,
+            TotalPrintedTickets = totalPrintedTickets,
+            AverageOccupancyRate = avgOccupancyRate,
+            PosFnBUpsellRevenue = posFnBUpsellRevenue,
             HighestGrossingMovie = highestGrossingMovie,
             DailyBreakdown = dailyBreakdown,
             TopMovies = topMovies,

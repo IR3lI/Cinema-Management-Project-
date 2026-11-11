@@ -4,134 +4,246 @@
     Layout = "_AdminLayout";
 }
 
-<div class="table-container">
-    <div class="d-flex align-items-center mb-4">
-        <a asp-action="Index" class="btn btn-outline-secondary btn-sm me-3">
-            <i class="bi bi-arrow-left"></i>
+<div class="table-container shadow-sm border-0 rounded-4 p-4 bg-white">
+    <div class="d-flex align-items-center mb-4 pb-3 border-bottom">
+        <a asp-action="Index" class="btn btn-outline-secondary btn-sm me-3 rounded-circle p-2" title="Quay lại danh sách">
+            <i class="bi bi-arrow-left fs-6"></i>
         </a>
-        <h5 class="fw-bold mb-0">
-            @if (Model.MovieId == 0)
-            {
-                <i class="bi bi-plus-circle me-2 text-warning"></i>@ViewData["Title"]
-            }
-            else
-            {
-                <i class="bi bi-pencil-square me-2 text-primary"></i>@ViewData["Title"]
-            }
-        </h5>
+        <div>
+            <h5 class="fw-bold mb-0 text-dark">
+                @if (Model.MovieId == 0)
+                {
+                    <i class="bi bi-film me-2 text-warning"></i><span>Thêm Phim Mới Vào Hệ Thống</span>
+                }
+                else
+                {
+                    <i class="bi bi-pencil-square me-2 text-primary"></i><span>Chỉnh Sửa Thông Tin Phim</span>
+                }
+            </h5>
+            <small class="text-muted">Cấu hình đầy đủ thông tin kỹ thuật, định dạng chiếu 2D/3D/IMAX, phân loại độ tuổi &amp; áp phích poster</small>
+        </div>
     </div>
 
     <form asp-action="@(Model.MovieId == 0 ? "Create" : "Edit")" asp-route-id="@Model.MovieId"
           method="post" enctype="multipart/form-data">
-        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3"></div>
 
         <div class="row g-4">
-            <!-- Left column -->
-            <div class="col-md-8">
-                <div class="mb-3">
-                    <label asp-for="Title" class="form-label fw-semibold"></label>
-                    <input asp-for="Title" class="form-control" />
-                    <span asp-validation-for="Title" class="text-danger small"></span>
-                </div>
-
-                <div class="mb-3">
-                    <label asp-for="Description" class="form-label fw-semibold"></label>
-                    <textarea asp-for="Description" class="form-control" rows="4"></textarea>
-                </div>
-
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label asp-for="Director" class="form-label fw-semibold"></label>
-                        <input asp-for="Director" class="form-control" />
+            <!-- Left column: Main Content -->
+            <div class="col-lg-8">
+                <div class="card border-0 bg-light rounded-4 p-3 mb-4">
+                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-info-circle me-1.5 text-primary"></i>Thông tin tổng quan</h6>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Title" class="form-label fw-semibold small text-dark"></label> <span class="text-danger">*</span>
+                        <input asp-for="Title" class="form-control" placeholder="VD: Godzilla x Kong: Đế Chế Mới" />
+                        <span asp-validation-for="Title" class="text-danger small"></span>
                     </div>
-                    <div class="col-md-6">
-                        <label asp-for="Duration" class="form-label fw-semibold"></label>
-                        <div class="input-group">
-                            <input asp-for="Duration" class="form-control" type="number" min="1" />
-                            <span class="input-group-text">phút</span>
+
+                    <div class="mb-3">
+                        <label asp-for="Description" class="form-label fw-semibold small text-dark"></label>
+                        <textarea asp-for="Description" class="form-control" rows="4" placeholder="Tóm tắt nội dung kịch bản phim..."></textarea>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label asp-for="Director" class="form-label fw-semibold small text-dark"></label>
+                            <input asp-for="Director" class="form-control" placeholder="VD: Adam Wingard" />
                         </div>
-                        <span asp-validation-for="Duration" class="text-danger small"></span>
+                        <div class="col-md-6">
+                            <label asp-for="Actors" class="form-label fw-semibold small text-dark"></label>
+                            <input asp-for="Actors" class="form-control" placeholder="VD: Rebecca Hall, Dan Stevens, Brian Tyree Henry" />
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label asp-for="Country" class="form-label fw-semibold small text-dark"></label>
+                            <input asp-for="Country" class="form-control" list="countryOptions" placeholder="VD: Mỹ" />
+                            <datalist id="countryOptions">
+                                <option value="Việt Nam"></option>
+                                <option value="Mỹ"></option>
+                                <option value="Hàn Quốc"></option>
+                                <option value="Nhật Bản"></option>
+                                <option value="Anh"></option>
+                                <option value="Pháp"></option>
+                                <option value="Thái Lan"></option>
+                                <option value="Trung Quốc"></option>
+                            </datalist>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="Duration" class="form-label fw-semibold small text-dark"></label> <span class="text-danger">*</span>
+                            <div class="input-group">
+                                <input asp-for="Duration" class="form-control" type="number" min="1" max="600" />
+                                <span class="input-group-text bg-white">phút</span>
+                            </div>
+                            <span asp-validation-for="Duration" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="Rating" class="form-label fw-semibold small text-dark"></label>
+                            <div class="input-group">
+                                <input asp-for="Rating" class="form-control" type="number" min="0" max="10" step="0.1" />
+                                <span class="input-group-text bg-white"><i class="bi bi-star-fill text-warning"></i></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="mb-3 mt-3">
-                    <label asp-for="Actors" class="form-label fw-semibold"></label>
-                    <input asp-for="Actors" class="form-control" placeholder="Diễn viên 1, Diễn viên 2, ..." />
-                </div>
-
-                <div class="mb-3">
-                    <label asp-for="TrailerUrl" class="form-label fw-semibold"></label>
-                    <input asp-for="TrailerUrl" class="form-control" placeholder="https://youtube.com/watch?v=..." />
-                </div>
-
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label asp-for="ReleaseDate" class="form-label fw-semibold"></label>
-                        <input asp-for="ReleaseDate" type="date" class="form-control" />
+                <div class="card border-0 bg-light rounded-4 p-3">
+                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-sliders me-1.5 text-success"></i>Kỹ thuật phát hành &amp; Lịch chiếu</h6>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label asp-for="Format" class="form-label fw-semibold small text-dark"></label>
+                            <select asp-for="Format" class="form-select">
+                                <option value="2D">2D Digital</option>
+                                <option value="3D">3D Digital</option>
+                                <option value="IMAX 2D">IMAX 2D</option>
+                                <option value="IMAX 3D">IMAX 3D</option>
+                                <option value="4DX">4DX</option>
+                                <option value="ScreenX">ScreenX</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="SubtitleType" class="form-label fw-semibold small text-dark"></label>
+                            <select asp-for="SubtitleType" class="form-select">
+                                <option value="Phụ đề Việt">Phụ đề Việt</option>
+                                <option value="Lồng tiếng Việt">Lồng tiếng Việt</option>
+                                <option value="Thuyết minh">Thuyết minh</option>
+                                <option value="Bản gốc không phụ đề">Bản gốc không phụ đề</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="Language" class="form-label fw-semibold small text-dark"></label>
+                            <input asp-for="Language" class="form-control" placeholder="VD: Tiếng Anh - Phụ đề Tiếng Việt" />
+                        </div>
                     </div>
-                    <div class="col-md-6">
-                        <label asp-for="EndDate" class="form-label fw-semibold"></label>
-                        <input asp-for="EndDate" type="date" class="form-control" />
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label asp-for="ReleaseDate" class="form-label fw-semibold small text-dark"></label>
+                            <input asp-for="ReleaseDate" type="date" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="EndDate" class="form-label fw-semibold small text-dark"></label>
+                            <input asp-for="EndDate" type="date" class="form-control" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label asp-for="TrailerUrl" class="form-label fw-semibold small text-dark"></label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white"><i class="bi bi-youtube text-danger"></i></span>
+                            <input asp-for="TrailerUrl" class="form-control" placeholder="https://www.youtube.com/watch?v=..." />
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Right column -->
-            <div class="col-md-4">
-                <!-- Poster -->
-                <div class="mb-3">
-                    @if (!string.IsNullOrEmpty(Model.PosterUrl))
-                    {
-                        <img src="@Model.PosterUrl" class="img-fluid rounded mb-2" alt="Poster hiện tại" />
-                    }
-                    <label asp-for="PosterFile" class="form-label fw-semibold"></label>
-                    <input asp-for="PosterFile" type="file" class="form-control" accept="image/*" />
+            <!-- Right column: Poster & Classification -->
+            <div class="col-lg-4">
+                <!-- Poster Upload & Preview (S3 / R2 / Direct URL) -->
+                <div class="card border-0 bg-light rounded-4 p-3 mb-4">
+                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-image me-1.5 text-warning"></i>Áp phích phim (Poster)</h6>
+                    
+                    <div class="text-center mb-3">
+                        <div class="poster-preview-box rounded-3 overflow-hidden mx-auto shadow-sm border" style="width: 160px; height: 235px; background: #0f172a;">
+                            <img id="posterPreviewImg" src="@(string.IsNullOrEmpty(Model.PosterUrl) ? "/images/no-poster.png" : Model.PosterUrl)"
+                                 class="w-100 h-100 object-fit-cover @(string.IsNullOrEmpty(Model.PosterUrl) ? "d-none" : "")"
+                                 alt="Poster preview" />
+                            <div id="posterPlaceholder" class="w-100 h-100 d-flex flex-column align-items-center justify-content-center text-white-50 @(!string.IsNullOrEmpty(Model.PosterUrl) ? "d-none" : "")">
+                                <i class="bi bi-image fs-1 mb-1"></i>
+                                <span class="text-xs">Chưa có ảnh</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="PosterFile" class="form-label fw-semibold small text-dark">
+                            <i class="bi bi-cloud-arrow-up me-1 text-primary"></i>Tải lên từ thiết bị (Lưu trữ S3 / R2):
+                        </label>
+                        <input asp-for="PosterFile" id="posterFileInput" type="file" class="form-control form-control-sm" accept="image/*" onchange="previewPosterFile(this)" />
+                        <span asp-validation-for="PosterFile" class="text-danger small"></span>
+                    </div>
+
+                    <div class="text-center text-muted small my-1">── hoặc ──</div>
+
+                    <div>
+                        <label asp-for="DirectPosterUrl" class="form-label fw-semibold small text-dark">
+                            <i class="bi bi-link-45deg me-1 text-success"></i>Đường dẫn ảnh trực tiếp (URL):
+                        </label>
+                        <input asp-for="DirectPosterUrl" id="directPosterUrlInput" class="form-control form-control-sm" placeholder="https://example.com/poster.jpg" oninput="previewDirectUrl(this.value)" />
+                    </div>
                 </div>
 
-                <div class="mb-3">
-                    <label asp-for="GenreId" class="form-label fw-semibold"></label>
-                    <select asp-for="GenreId" asp-items="Model.Genres" class="form-select">
-                        <option value="">– Chọn thể loại –</option>
-                    </select>
-                </div>
+                <!-- Classification & Status -->
+                <div class="card border-0 bg-light rounded-4 p-3">
+                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-tags me-1.5 text-info"></i>Phân loại &amp; Trạng thái</h6>
 
-                <div class="mb-3">
-                    <label asp-for="Status" class="form-label fw-semibold"></label>
-                    <select asp-for="Status" class="form-select">
-                        <option value="0">Sắp chiếu</option>
-                        <option value="1">Đang chiếu</option>
-                        <option value="2">Đã kết thúc</option>
-                    </select>
-                </div>
+                    <div class="mb-3">
+                        <label asp-for="GenreId" class="form-label fw-semibold small text-dark"></label> <span class="text-danger">*</span>
+                        <select asp-for="GenreId" asp-items="Model.Genres" class="form-select">
+                            <option value="">– Chọn thể loại phim –</option>
+                        </select>
+                        <span asp-validation-for="GenreId" class="text-danger small"></span>
+                    </div>
 
-                <div class="mb-3">
-                    <label asp-for="AgeRating" class="form-label fw-semibold"></label>
-                    <select asp-for="AgeRating" asp-items="Model.AgeRatings" class="form-select">
-                        <option value="">– Chọn –</option>
-                    </select>
-                </div>
+                    <div class="mb-3">
+                        <label asp-for="Status" class="form-label fw-semibold small text-dark"></label>
+                        <select asp-for="Status" class="form-select">
+                            <option value="0">Sắp chiếu (Coming Soon)</option>
+                            <option value="1">Đang chiếu (Now Showing)</option>
+                            <option value="2">Đã kết thúc (Ended)</option>
+                        </select>
+                    </div>
 
-                <div class="mb-3">
-                    <label asp-for="Language" class="form-label fw-semibold"></label>
-                    <input asp-for="Language" class="form-control" />
-                </div>
-
-                <div class="mb-3">
-                    <label asp-for="Rating" class="form-label fw-semibold"></label>
-                    <input asp-for="Rating" class="form-control" type="number" min="0" max="10" step="0.1" />
+                    <div class="mb-2">
+                        <label asp-for="AgeRating" class="form-label fw-semibold small text-dark"></label>
+                        <select asp-for="AgeRating" asp-items="Model.AgeRatings" class="form-select"></select>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <hr />
-        <button type="submit" class="btn btn-warning fw-bold me-2">
-            <i class="bi bi-save me-1"></i>
-            @(Model.MovieId == 0 ? "Thêm phim" : "Lưu thay đổi")
-        </button>
-        <a asp-action="Index" class="btn btn-outline-secondary">Hủy</a>
+        <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+            <a asp-action="Index" class="btn btn-outline-secondary px-4 fw-semibold rounded-3">
+                <i class="bi bi-x-circle me-1"></i>Hủy bỏ
+            </a>
+            <button type="submit" class="btn btn-warning px-4 py-2 fw-bold rounded-3 shadow-sm">
+                <i class="bi bi-check2-circle me-1.5"></i>@(Model.MovieId == 0 ? "Thêm Phim Vào Danh Mục" : "Lưu Thông Tin Thay Đổi")
+            </button>
+        </div>
     </form>
 </div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        function previewPosterFile(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.getElementById('posterPreviewImg');
+                    const placeholder = document.getElementById('posterPlaceholder');
+                    img.src = e.target.result;
+                    img.classList.remove('d-none');
+                    placeholder.classList.add('d-none');
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function previewDirectUrl(url) {
+            const trimmed = (url || '').trim();
+            const img = document.getElementById('posterPreviewImg');
+            const placeholder = document.getElementById('posterPlaceholder');
+            if (trimmed.length > 5) {
+                img.src = trimmed;
+                img.classList.remove('d-none');
+                placeholder.classList.add('d-none');
+            } else if (!document.getElementById('posterFileInput').files.length) {
+                img.classList.add('d-none');
+                placeholder.classList.remove('d-none');
+            }
+        }
+    </script>
 }

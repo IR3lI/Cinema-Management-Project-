@@ -20,5 +20,6 @@ public interface IReportService
     Task<DetailedAnalyticsDto> GetDetailedAnalyticsAsync(
         DateTime? fromDate = null,
         DateTime? toDate = null,
+        int? cinemaId = null,
         CancellationToken cancellationToken = default);
 }

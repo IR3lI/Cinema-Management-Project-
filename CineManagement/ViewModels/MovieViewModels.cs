@@ -57,7 +57,23 @@ public class MovieFormViewModel
 
     [StringLength(10)]
     [Display(Name = "Phân loại độ tuổi")]
-    public string? AgeRating { get; set; }
+    public string? AgeRating { get; set; } = "P";
+
+    [StringLength(100)]
+    [Display(Name = "Quốc gia sản xuất")]
+    public string? Country { get; set; } = "Việt Nam";
+
+    [StringLength(50)]
+    [Display(Name = "Định dạng chiếu")]
+    public string? Format { get; set; } = "2D";
+
+    [StringLength(100)]
+    [Display(Name = "Hình thức dịch")]
+    public string? SubtitleType { get; set; } = "Phụ đề Việt";
+
+    [StringLength(500)]
+    [Display(Name = "Hoặc nhập trực tiếp URL Poster")]
+    public string? DirectPosterUrl { get; set; }
 
     [StringLength(100)]
     [Display(Name = "Ngôn ngữ")]
@@ -70,10 +86,12 @@ public class MovieFormViewModel
     public IEnumerable<SelectListItem> Genres { get; set; } = new List<SelectListItem>();
     public IEnumerable<SelectListItem> AgeRatings { get; set; } = new List<SelectListItem>
     {
-        new("P – Mọi lứa tuổi", "P"),
-        new("C13 – Trên 13 tuổi", "C13"),
-        new("C16 – Trên 16 tuổi", "C16"),
-        new("C18 – Trên 18 tuổi", "C18"),
+        new("P – Phổ biến cho mọi lứa tuổi", "P"),
+        new("K – Dưới 13 tuổi xem cùng phụ huynh", "K"),
+        new("T13 (C13) – Cấm khán giả dưới 13 tuổi", "T13"),
+        new("T16 (C16) – Cấm khán giả dưới 16 tuổi", "T16"),
+        new("T18 (C18) – Cấm khán giả dưới 18 tuổi", "T18"),
+        new("C – Cấm phổ biến", "C")
     };
 }
 
