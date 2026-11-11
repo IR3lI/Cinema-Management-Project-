@@ -35,3 +35,4 @@ Thumbs.db
 mariadb_data/
 minio_data/
 nginx/certs/*.key
+nginx/certs/*.crt
