@@ -5,8 +5,9 @@ using Amazon.S3;
 using Amazon.Runtime;
 using CineManagement.Modules.Shared.Storage;
 using CineManagement.Modules.Shared.Common;
+using CineManagement.Services;
 
-namespace CineManagement.Modules.Shared;
+namespace CineManagement.Shared;
 
 public static class SharedModuleExtensions
 {
@@ -29,6 +30,7 @@ public static class SharedModuleExtensions
         services.AddScoped<IStorageService, S3StorageService>();
         services.AddScoped<IFileStorageService, FileStorageService>();
         services.AddSingleton<IEventBus, InMemoryEventBus>();
+        services.AddSingleton<IQrCodeService, QrCodeService>();
         return services;
     }
 }

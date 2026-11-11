@@ -8,6 +8,7 @@ public static class OrderingModuleExtensions
     public static IServiceCollection AddOrderingModule(this IServiceCollection services)
     {
         services.AddScoped<IBookingService, BookingService>();
+        services.AddScoped<IReportService, ReportService>();
         return services;
     }
 }

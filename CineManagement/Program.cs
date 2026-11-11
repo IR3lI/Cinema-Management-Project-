@@ -130,14 +130,19 @@ builder.Services.AddTicketingModule();
 builder.Services.AddOrderingModule();
 builder.Services.AddPaymentsModule();
 
-// ── Cross-Cutting Support Services ─────────────────────────────────────────
+// ── Smtp Options & SignalR ─────────────────────────────────────────────────
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection(SmtpOptions.SectionName));
-builder.Services.AddScoped<IEmailService, EmailService>();
-builder.Services.AddSingleton<IQrCodeService, QrCodeService>();
-builder.Services.AddScoped<IReportService, ReportService>();
-
 builder.Services.AddSignalR();
-builder.Services.AddControllersWithViews();
+
+// ── MVC Controllers & Modular Razor View Resolution ────────────────────────
+builder.Services.AddControllersWithViews()
+    .AddRazorOptions(options =>
+    {
+        options.ViewLocationFormats.Add("/Modules/{1}/Views/{0}.cshtml");
+        options.ViewLocationFormats.Add("/Modules/Ordering/Views/{1}/{0}.cshtml");
+        options.ViewLocationFormats.Add("/Modules/Cinemas/Views/{1}/{0}.cshtml");
+        options.ViewLocationFormats.Add("/Modules/Catalog/Views/{1}/{0}.cshtml");
+    });
 
 // ── Binding & Network (Allow mobile devices on local Wi-Fi to connect) ───────
 if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")) && !args.Any(a => a.StartsWith("--urls", StringComparison.OrdinalIgnoreCase)))

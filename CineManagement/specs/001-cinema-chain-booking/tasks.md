@@ -126,3 +126,16 @@
 - [X] T041 [HIGH] Nâng cấp giao diện Studio `LayoutBuilder.cshtml` với tính năng click tiêu đề cột bật/tắt hành lang dọc, thanh công cụ gán nhanh hạng ghế theo hàng và cảnh báo Aisle Guard phía client per plan.md & US5 (partial)
 - [X] T042 [HIGH] Xây dựng `Dockerfile` multi-stage build, `docker-compose.yml` cụm container (`nginx`, `app`, `mariadb`, `minio`, `minio-init`) và cấu hình NGINX WebSocket proxying kèm Cloudflare SSL trong `nginx/conf.d/default.conf` per plan.md (missing)
 - [X] T043 [HIGH] Ràng buộc bắt buộc đăng nhập tài khoản trước khi chọn và giữ ghế trực tuyến qua SignalR trong `Controllers/BookingController.cs` và `Hubs/SeatBookingHub.cs` per FR-001 & Clarification 4 (partial)
+
+
+---
+
+## Phase 11: Convergence - Modular Monolith Decoupling & Clean Architecture (CLO1)
+
+**Purpose**: Hoàn thiện chuyển đổi triệt để sang Modular Monolith theo chuẩn CLO1, đóng gói hoàn toàn các service và model còn sót ở thư mục gốc, phân tách DI và chuẩn hóa ranh giới dữ liệu liên module mà không làm gãy các tính năng đang chạy.
+
+- [X] T044 [CRITICAL] [P] Đóng gói các model phụ trợ (`Staff`, `Review`, `ApplicationUser`, `Enums`) vào các module tương ứng (`Shared/Identity/`, `Shared/Domain/`, `Modules/Catalog/Models/`) per Constitution I (partial)
+- [X] T045 [HIGH] [P] Tạo và gom cụm `ReportService`, `QrCodeService`, `EmailService` vào các module nghiệp vụ `Ordering`, `Shared`, `Payments` và đăng ký Extension Methods trong `Program.cs` per plan.md (missing)
+- [X] T046 [HIGH] Chuyển đổi các controller (`BookingController`, `CounterController`, `ScreeningRoomController`, `CinemaController`, `MovieController`) sang các module nghiệp vụ `Modules/Ordering/Controllers/`, `Modules/Cinemas/Controllers/`, `Modules/Catalog/Controllers/` bảo vệ 100% đường dẫn Razor Views qua `AddRazorOptions` per Constitution I (partial)
+- [X] T047 [MEDIUM] [P] Tinh chỉnh và chuẩn hóa `GlobalUsings.cs` đồng bộ toàn bộ Bounded Contexts và Shared layers per CLO1 (partial)
+- [X] T048 [MEDIUM] [P] Bổ sung cấu hình mẫu Cloudflare Zero Trust Access Rule bảo vệ các endpoint quản trị `/Admin` và `/Counter` per Security standards (missing)
