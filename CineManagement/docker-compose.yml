@@ -24,6 +24,8 @@ services:
     image: cinemanagement-app:latest
     container_name: cinemanagement-app
     restart: unless-stopped
+    volumes:
+      - ./wwwroot/uploads:/app/wwwroot/uploads
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
