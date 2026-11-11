@@ -570,7 +570,7 @@
                     'Content-Type': 'application/json',
                     'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
                 },
-                body: JSON.stringify({ code: code })
+                body: JSON.stringify({ qrOrCode: code, code: code })
             });
             const data = await resp.json();
 

@@ -38,7 +38,7 @@ public class CounterController : Controller
     }
 
     // ── DTOs cho Counter POS ──────────────────────────────────────────────
-    public record CounterScanQrRequest(string? QrOrCode);
+    public record CounterScanQrRequest(string? QrOrCode, string? Code = null);
 
     public record CounterFnbItemDto(int FoodItemId, int Quantity);
 
@@ -127,7 +127,7 @@ public class CounterController : Controller
         [FromForm] string? qrOrCode,
         [FromQuery] string? q)
     {
-        var rawCode = (req?.QrOrCode ?? qrOrCode ?? q)?.Trim();
+        var rawCode = (req?.QrOrCode ?? req?.Code ?? qrOrCode ?? q)?.Trim();
         if (string.IsNullOrWhiteSpace(rawCode))
         {
             return Json(new { success = false, message = "Vui lòng quét mã QR hoặc nhập mã đặt vé / mã vé." });
