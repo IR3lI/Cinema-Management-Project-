@@ -21,7 +21,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: 
+    image: cinemanagement-app:latest
     container_name: cinemanagement-app
     restart: unless-stopped
     environment:
@@ -39,8 +39,6 @@ services:
     depends_on:
       mariadb:
         condition: service_healthy
-      minio:
-        condition: service_started
     networks:
       - cinemanagement-net
 
@@ -66,7 +64,9 @@ services:
 
   # ── MinIO S3 Object Storage (Development & Fallback) ─────────────────────
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest
+    profiles:
+      - dev
     container_name: cinemanagement-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
@@ -83,7 +83,9 @@ services:
 
   # ── MinIO Auto Bucket Provisioning ───────────────────────────────────────
   minio-init:
-    image: minio/mc:latest
+    image: quay.io/minio/mc:latest
+    profiles:
+      - dev
     container_name: cinemanagement-minio-init
     depends_on:
       - minio

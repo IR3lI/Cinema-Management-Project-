@@ -49,49 +49,56 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 // ── Ensure wwwroot/uploads exists and contains all posters & FnB images ────
-var targetPostersDir = Path.Combine(exeDir, "wwwroot", "uploads", "posters");
-var targetFnbDir = Path.Combine(exeDir, "wwwroot", "uploads", "fnb");
-Directory.CreateDirectory(targetPostersDir);
-Directory.CreateDirectory(targetFnbDir);
-
-string[] uploadSearchDirs = [
-    Path.Combine(Directory.GetCurrentDirectory(), "CineManagement", "wwwroot", "uploads"),
-    Path.Combine(Directory.GetCurrentDirectory(), "publish", "wwwroot", "uploads"),
-    Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads"),
-    Path.GetFullPath(Path.Combine(exeDir, "..", "..", "..", "CineManagement", "wwwroot", "uploads")),
-    Path.GetFullPath(Path.Combine(exeDir, "..", "..", "..", "wwwroot", "uploads")),
-    Path.Combine(exeDir, "wwwroot", "uploads")
-];
-
-foreach (var sDir in uploadSearchDirs)
+try
 {
-    if (!Directory.Exists(sDir)) continue;
-    
-    var srcPosters = Path.Combine(sDir, "posters");
-    if (Directory.Exists(srcPosters))
-    {
-        foreach (var file in Directory.GetFiles(srcPosters, "poster_*.jpg"))
-        {
-            var dest = Path.Combine(targetPostersDir, Path.GetFileName(file));
-            if (!File.Exists(dest) || new FileInfo(dest).Length == 0)
-            {
-                try { File.Copy(file, dest, true); } catch { }
-            }
-        }
-    }
+    var targetPostersDir = Path.Combine(exeDir, "wwwroot", "uploads", "posters");
+    var targetFnbDir = Path.Combine(exeDir, "wwwroot", "uploads", "fnb");
+    Directory.CreateDirectory(targetPostersDir);
+    Directory.CreateDirectory(targetFnbDir);
 
-    var srcFnb = Path.Combine(sDir, "fnb");
-    if (Directory.Exists(srcFnb))
+    string[] uploadSearchDirs = [
+        Path.Combine(Directory.GetCurrentDirectory(), "CineManagement", "wwwroot", "uploads"),
+        Path.Combine(Directory.GetCurrentDirectory(), "publish", "wwwroot", "uploads"),
+        Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads"),
+        Path.GetFullPath(Path.Combine(exeDir, "..", "..", "..", "CineManagement", "wwwroot", "uploads")),
+        Path.GetFullPath(Path.Combine(exeDir, "..", "..", "..", "wwwroot", "uploads")),
+        Path.Combine(exeDir, "wwwroot", "uploads")
+    ];
+
+    foreach (var sDir in uploadSearchDirs)
     {
-        foreach (var file in Directory.GetFiles(srcFnb, "fnb_*.jpg"))
+        if (!Directory.Exists(sDir)) continue;
+        
+        var srcPosters = Path.Combine(sDir, "posters");
+        if (Directory.Exists(srcPosters))
         {
-            var dest = Path.Combine(targetFnbDir, Path.GetFileName(file));
-            if (!File.Exists(dest) || new FileInfo(dest).Length == 0)
+            foreach (var file in Directory.GetFiles(srcPosters, "poster_*.jpg"))
             {
-                try { File.Copy(file, dest, true); } catch { }
+                var dest = Path.Combine(targetPostersDir, Path.GetFileName(file));
+                if (!File.Exists(dest) || new FileInfo(dest).Length == 0)
+                {
+                    try { File.Copy(file, dest, true); } catch { }
+                }
+            }
+        }
+
+        var srcFnb = Path.Combine(sDir, "fnb");
+        if (Directory.Exists(srcFnb))
+        {
+            foreach (var file in Directory.GetFiles(srcFnb, "fnb_*.jpg"))
+            {
+                var dest = Path.Combine(targetFnbDir, Path.GetFileName(file));
+                if (!File.Exists(dest) || new FileInfo(dest).Length == 0)
+                {
+                    try { File.Copy(file, dest, true); } catch { }
+                }
             }
         }
     }
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"[Storage Warning] Local uploads directory initialization bypassed: {ex.Message}");
 }
 
 // ── Identity ────────────────────────────────────────────────────────────────

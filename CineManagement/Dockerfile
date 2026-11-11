@@ -16,7 +16,10 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 EXPOSE 8080
 
-COPY --from=build /app/publish .
+RUN mkdir -p /app/wwwroot/uploads/posters /app/wwwroot/uploads/fnb \
+    && chown -R $APP_UID:$APP_UID /app
+
+COPY --chown=$APP_UID:$APP_UID --from=build /app/publish .
 
 # Use non-root container user
 USER $APP_UID
